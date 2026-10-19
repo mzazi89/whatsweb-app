@@ -80,7 +80,7 @@ Socket.IO emits `state`, `chats`, `message`, `message:update` and `presence`.
 
 ## Deploying
 
-Any Node host works. Two things to get right:
+Any Node host works. A `Dockerfile`, `render.yaml` and `railway.json` are included: on Railway the Dockerfile is detected, on Render connect the repo and the blueprint creates the service with a 1 GB disk. Two things to get right:
 
 1. **A persistent volume** for `data/`, otherwise every restart asks for a new QR.
 2. **HTTPS and a password**, because whoever loads the page can read every chat.
