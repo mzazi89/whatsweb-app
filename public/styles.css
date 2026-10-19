@@ -301,3 +301,27 @@ button { cursor: pointer; }
 .loading-screen .spinner { width: 34px; height: 34px; }
 
 .blank[hidden], .rail-loading[hidden] { display: none !important; }
+
+.rail-heading {
+  margin: 0; padding: 4px 16px 6px; font-size: 22px; font-weight: 700; letter-spacing: -.2px;
+}
+.tabs {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px;
+  border-top: 1px solid var(--line); background: var(--rail);
+  padding: 6px 4px 8px;
+}
+.tab {
+  position: relative; display: grid; justify-items: center; gap: 3px;
+  background: none; border: 0; color: var(--muted); font: inherit; font-size: 11px;
+  padding: 6px 2px; border-radius: 10px; cursor: pointer;
+}
+.tab svg { width: 22px; height: 22px; }
+.tab.is-on { color: var(--green); }
+.tab.is-on svg { filter: drop-shadow(0 0 6px rgba(0,168,132,.35)); }
+.tab-badge {
+  position: absolute; top: 0; right: 22%; background: var(--green); color: #04120d;
+  border-radius: 999px; font-style: normal; font-size: 10px; font-weight: 800;
+  padding: 1px 6px; line-height: 1.4;
+}
+.avatar.ring { box-shadow: 0 0 0 2px var(--rail), 0 0 0 4px var(--green); }
+.name.missed { color: var(--danger); }

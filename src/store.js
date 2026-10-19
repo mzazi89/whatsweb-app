@@ -25,6 +25,8 @@ class Store {
       (raw.contacts || []).forEach((c) => this.contacts.set(c.id, c));
       Object.entries(raw.messages || {}).forEach(([jid, list]) => this.messages.set(jid, list));
       this.meta = raw.meta || { me: null };
+      this.statuses = raw.statuses || [];
+      this.calls = raw.calls || [];
     } catch (e) {
       // A missing or corrupt file is not fatal: start empty.
     }
@@ -43,6 +45,8 @@ class Store {
         chats: [...this.chats.values()],
         contacts: [...this.contacts.values()],
         messages: Object.fromEntries(this.messages),
+        statuses: this.statuses || [],
+        calls: this.calls || [],
       };
       fs.writeFileSync(FILE, JSON.stringify(out));
     } catch (e) {
@@ -84,6 +88,11 @@ class Store {
   chat(jid) {
     return this.chats.get(jid) || null;
   }
+
+  getStatuses() { return this.statuses || []; }
+  setStatuses(list) { this.statuses = (list || []).slice(0, 60); this.save(); }
+  getCalls() { return this.calls || []; }
+  setCalls(list) { this.calls = (list || []).slice(0, 80); this.save(); }
 
   listChats() {
     return [...this.chats.values()].sort((a, b) => (b.updated || 0) - (a.updated || 0)).slice(0, MAX_CHATS);

@@ -91,6 +91,8 @@ app.get("/api/diag", (req, res) => res.json({ ...wa.snapshot(), logs: recent }))
 
 app.get("/api/chats", (req, res) => res.json({ chats: wa.chats() }));
 
+app.get("/api/statuses", (req, res) => res.json({ statuses: wa.statuses || [], calls: wa.calls || [] }));
+
 app.get("/api/chats/:jid/messages", (req, res) => {
   const jid = decodeURIComponent(req.params.jid);
   res.json({ chat: wa.chatView(jid), messages: wa.messages(jid) });
@@ -174,6 +176,9 @@ io.on("connection", (socket) => {
 });
 
 wa.on("state", (snap) => io.emit("state", snap));
+wa.on("statuses", (list) => io.emit("statuses", list));
+wa.on("calls", (list) => io.emit("calls", list));
+
 wa.on("chats:refresh", (chats) => io.emit("chats", chats));
 wa.on("message", (payload) => io.emit("message", payload));
 wa.on("message:update", (payload) => io.emit("message:update", payload));

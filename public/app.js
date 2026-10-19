@@ -9,6 +9,9 @@
     current: null,
     messages: [],
     filter: "",
+    tab: "chats",
+    calls: [],
+    statuses: [],
     snapState: "idle",
     loadingTimedOut: false,
     typing: new Map(), // jid -> {on, until}
@@ -17,7 +20,7 @@
 
   const els = {
     meName: $("me-name"), meNum: $("me-num"), meAvatar: $("me-avatar"),
-    railLoading: $("rail-loading"), loadingScreen: $("loading-screen"), loadingNote: $("loading-note"),
+    railLoading: $("rail-loading"), heading: $("rail-heading"), searchWrap: $("search-wrap"), tabs: $("tabs"), loadingScreen: $("loading-screen"), loadingNote: $("loading-note"),
     chats: $("chats"), railEmpty: $("rail-empty"), search: $("search"),
     blank: $("blank"), chat: $("chat"), thread: $("thread"),
     chatName: $("chat-name"), chatSub: $("chat-sub"), chatAvatar: $("chat-avatar"),
@@ -83,22 +86,79 @@
   }
 
   function renderChats() {
-    const list = visibleChats();
-    const waiting = state.snapState === "open" && !state.chats.length && !state.loadingTimedOut;
+    const tab = state.tab;
+    els.heading.textContent = tab === "chats" ? "Chats" : tab === "channels" ? "Channels" : tab === "calls" ? "Calls" : "Updates";
+    els.searchWrap.style.display = tab === "chats" || tab === "channels" ? "" : "none";
+    for (const b of els.tabs.querySelectorAll(".tab")) b.classList.toggle("is-on", b.dataset.tab === tab);
+
+    const unread = state.chats.reduce((n, c) => n + (c.unread || 0), 0);
+    const bChats = $("badge-chats");
+    bChats.hidden = !unread;
+    bChats.textContent = unread > 99 ? "99+" : String(unread);
+    const bUp = $("badge-updates");
+    bUp.hidden = !state.statuses.length;
+    bUp.textContent = String(state.statuses.length);
+
+    let rows = [];
+    if (tab === "chats" || tab === "channels") {
+      const want = tab === "chats" ? (c) => c.kind === "dm" || c.kind === "group" : (c) => c.kind === "channel" || c.kind === "broadcast";
+      rows = state.chats.filter(want).filter((c) => {
+        const q = state.filter.toLowerCase();
+        return !q || (c.name || "").toLowerCase().includes(q) || (c.number || "").includes(q);
+      }).sort((a, b) => (b.lastTs || b.updated || 0) - (a.lastTs || a.updated || 0)).map((c) => {
+        const typing = state.typing.get(c.id);
+        const sub = typing && typing.on ? "typing…" : (c.last || "");
+        return `<div class="chat-row${state.current === c.id ? " active" : ""}" data-jid="${esc(c.id)}">
+          <div class="avatar" data-avatar="${esc(c.id)}">${initial(c.name)}</div>
+          <div class="meta">
+            <div class="top"><span class="name">${esc(c.name || c.number)}</span><span class="time">${shortTime(c.lastTs)}</span></div>
+            <div class="bottom"><span class="last">${esc(sub)}</span>${c.unread ? `<span class="badge">${c.unread}</span>` : ""}</div>
+          </div>
+        </div>`;
+      });
+    } else if (tab === "calls") {
+      rows = (state.calls || []).map((c) => {
+        const chat = state.chats.find((x) => x.id === c.jid);
+        const name = chat?.name || pretty(c.jid);
+        const missed = ["terminate", "timeout"].includes(c.status);
+        return `<div class="chat-row" data-call="${esc(c.jid)}">
+          <div class="avatar">${initial(name)}</div>
+          <div class="meta">
+            <div class="top"><span class="name ${missed ? "missed" : ""}">${esc(name)}</span><span class="time">${shortTime(c.ts)}</span></div>
+            <div class="bottom"><span class="last">${missed ? "Missed" : "Incoming"}${c.video ? " · video" : ""} call</span></div>
+          </div>
+        </div>`;
+      });
+    } else {
+      rows = (state.statuses || []).map((x) => {
+        const chat = state.chats.find((c) => c.id === x.jid);
+        const name = x.name || chat?.name || pretty(x.jid);
+        return `<div class="chat-row" data-status="${esc(x.jid)}">
+          <div class="avatar ring">${initial(name)}</div>
+          <div class="meta">
+            <div class="top"><span class="name">${esc(name)}</span><span class="time">${shortTime(x.ts)}</span></div>
+            <div class="bottom"><span class="last">${esc(x.kind === "text" ? x.text : x.kind + " status")}</span></div>
+          </div>
+        </div>`;
+      });
+    }
+
+    const waiting = state.snapState === "open" && !state.chats.length && !state.loadingTimedOut && tab === "chats";
     els.railLoading.hidden = !waiting;
-    els.railEmpty.hidden = list.length > 0 || waiting;
-    els.chats.innerHTML = list.map((c) => {
-      const typing = state.typing.get(c.id);
-      const sub = typing && typing.on ? "typing…" : (c.last || "");
-      return `<div class="chat-row${state.current === c.id ? " active" : ""}" data-jid="${esc(c.id)}">
-        <div class="avatar" data-avatar="${esc(c.id)}">${initial(c.name)}</div>
-        <div class="meta">
-          <div class="top"><span class="name">${esc(c.name || c.number)}</span><span class="time">${shortTime(c.lastTs)}</span></div>
-          <div class="bottom"><span class="last">${esc(sub)}</span>${c.unread ? `<span class="badge">${c.unread}</span>` : ""}</div>
-        </div>
-      </div>`;
-    }).join("");
+    els.chats.innerHTML = rows.join("");
+    els.railEmpty.hidden = rows.length > 0 || waiting;
+    els.railEmpty.innerHTML =
+      tab === "chats" ? "<p>No chats yet.</p><p class=\"muted\">Link your phone to load them.</p>"
+      : tab === "channels" ? "<p>No channels yet.</p><p class=\"muted\">Channels you follow appear here.</p>"
+      : tab === "calls" ? "<p>No calls yet.</p><p class=\"muted\">Calls show up here as they happen.</p>"
+      : "<p>No updates yet.</p><p class=\"muted\">Status updates from your contacts appear here.</p>";
     paintAvatars();
+  }
+
+  function pretty(jid) {
+    const n = String(jid || "").split("@")[0].replace(/\D/g, "");
+    if (n.length === 12) return `+${n.slice(0, 3)} ${n.slice(3, 6)} ${n.slice(6, 9)} ${n.slice(9)}`;
+    return n ? `+${n}` : String(jid || "").split("@")[0];
   }
 
   async function paintAvatars() {
@@ -324,6 +384,12 @@
     if (snap.chats) { state.chats = snap.chats; renderChats(); }
   }
 
+  api("/api/statuses").then((d) => {
+    state.statuses = d.statuses || [];
+    state.calls = d.calls || [];
+    renderChats();
+  }).catch(() => {});
+
   // A dropped socket event should not leave the page stale.
   setInterval(async () => {
     if (document.hidden) return;
@@ -339,6 +405,18 @@
 
   // ── events ─────────────────────────────────────────────────────────────────
   socket.on("state", renderState);
+  els.tabs.addEventListener("click", (e) => {
+    const b = e.target.closest(".tab");
+    if (!b) return;
+    state.tab = b.dataset.tab;
+    state.filter = "";
+    els.search.value = "";
+    renderChats();
+  });
+
+  socket.on("statuses", (list) => { state.statuses = list || []; renderChats(); });
+  socket.on("calls", (list) => { state.calls = list || []; renderChats(); });
+
   socket.on("chats", (chats) => { state.chats = chats || []; renderChats(); renderBlank(); });
 
   socket.on("message", ({ chat, message }) => {

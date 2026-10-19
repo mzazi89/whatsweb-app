@@ -28,6 +28,13 @@ function loadBaileys() {
 const jidToNumber = (jid) => String(jid || "").split("@")[0].split(":")[0];
 const isGroup = (jid) => String(jid || "").endsWith("@g.us");
 const isLid = (jid) => String(jid || "").endsWith("@lid");
+const kindOf = (jid) => {
+  const j = String(jid || "");
+  if (j.endsWith("@g.us")) return "group";
+  if (j.endsWith("@newsletter")) return "channel";
+  if (j.endsWith("@broadcast")) return "broadcast";
+  return "dm";
+};
 
 // +254 712 345 678 for Kenyan-style numbers, otherwise grouped digits.
 const prettyNumber = (jid) => {
@@ -51,6 +58,8 @@ class WhatsApp extends EventEmitter {
     this.qr = null;
     this.pairing = null;
     this.raw = new Map(); // message id -> raw WAMessage (for media download)
+    this.statuses = store.getStatuses ? store.getStatuses() : [];
+    this.calls = store.getCalls ? store.getCalls() : [];
     this.groupNames = new Map(); // jid -> subject, resolved lazily
     this.groupLookups = new Set();
     this.starting = false;
@@ -275,6 +284,17 @@ class WhatsApp extends EventEmitter {
         list.forEach((c) => this.ingestContact(c));
         this.emit("chats:refresh", this.chats());
       });
+      sock.ev.on("call", (events) => {
+        (events || []).forEach((c) => {
+          const jid = c.from || c.chatId;
+          if (!jid) return;
+          const entry = { jid, ts: Date.now(), status: c.status || "offer", video: !!c.isVideo };
+          this.calls = [entry, ...(this.calls || [])].slice(0, 80);
+          store.setCalls(this.calls);
+          this.emit("calls", this.calls);
+        });
+      });
+
       sock.ev.on("presence.update", ({ id, presences }) => {
         const map = presences || {};
         const first = map[Object.keys(map)[0]] || {};
@@ -349,6 +369,21 @@ class WhatsApp extends EventEmitter {
     });
   }
 
+  rememberStatus(raw) {
+    const key = raw.key || {};
+    const from = key.participant || key.remoteJid;
+    if (!from || key.fromMe) return;
+    const m = raw.message || {};
+    const inner = m.imageMessage || m.videoMessage || m.extendedTextMessage || m.conversation ? m : m;
+    const text = inner.conversation || inner.extendedTextMessage?.text || inner.imageMessage?.caption || inner.videoMessage?.caption || "";
+    const kind = m.imageMessage ? "image" : m.videoMessage ? "video" : "text";
+    const entry = { jid: from, ts: (Number(raw.messageTimestamp) || 0) * 1000, kind, text, name: raw.pushName || "" };
+    if (!entry.ts) entry.ts = Date.now();
+    this.statuses = [{ ...entry }, ...(this.statuses || []).filter((x) => x.jid !== from)].slice(0, 60);
+    store.setStatuses(this.statuses);
+    this.emit("statuses", this.statuses);
+  }
+
   // Remember the name the sender publishes, so a chat is never a bare number.
   rememberPushName(jid, pushName) {
     if (!jid || !pushName) return;
@@ -361,7 +396,11 @@ class WhatsApp extends EventEmitter {
   pack(raw, live) {
     const key = raw.key || {};
     const jid = key.remoteJid;
-    if (!jid || jid === "status@broadcast") return null;
+    if (jid === "status@broadcast") {
+      this.rememberStatus(raw);
+      return null;
+    }
+    if (!jid) return null;
     const m = raw.message || {};
     const inner =
       m.ephemeralMessage?.message ||
@@ -446,6 +485,7 @@ class WhatsApp extends EventEmitter {
       id: jid,
       name,
       number: group || isLid(jid) ? "" : prettyNumber(jid),
+      kind: kindOf(jid),
       group: isGroup(jid),
       unread: chat.unread || 0,
       last: chat.last || "",
