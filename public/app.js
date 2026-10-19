@@ -200,6 +200,7 @@
 
   function renderBlank() {
     const waiting = state.snapState === "open" && !state.chats.length && !state.loadingTimedOut;
+    document.body.classList.toggle("is-loading", waiting);
     els.loadingScreen.hidden = !(waiting && !state.current);
     els.blank.hidden = waiting || !!state.current;
     if (waiting) {

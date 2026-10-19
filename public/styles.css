@@ -15,6 +15,8 @@
 }
 
 * { box-sizing: border-box; }
+/* display rules on .link-overlay/.blank/.rail-loading beat the hidden attribute */
+[hidden] { display: none !important; }
 html, body { height: 100%; }
 body {
   margin: 0;
@@ -273,6 +275,14 @@ button { cursor: pointer; }
   .thread { padding: 14px 10px 10px; }
   .msg { max-width: 86%; }
   .blank { display: none; }
+  /* Phones hide the pane, so the first-sync message has to take the screen. */
+  body.is-loading .pane { display: flex; }
+  body.is-loading .rail { display: none; }
+  .loading-screen:not([hidden]) {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; position: fixed; inset: 0; z-index: 30;
+    background: var(--bg); padding: 32px 24px;
+  }
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -284,7 +294,8 @@ button { cursor: pointer; }
 }
 .rail-loading p { margin: 10px 0 0; }
 .loading-screen {
-  display: grid; place-items: center; text-align: center; gap: 6px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; gap: 10px; max-width: 360px; margin: 0 auto;
 }
 .loading-screen h2 { margin: 10px 0 0; font-size: 20px; }
 .loading-screen .spinner { width: 34px; height: 34px; }
