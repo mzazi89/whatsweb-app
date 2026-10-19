@@ -58,8 +58,14 @@ class WhatsApp extends EventEmitter {
     };
   }
 
-  async start({ phone } = {}) {
-    if (this.starting) return;
+  async start(opts = {}) {
+    // A logout restarts the socket on its own; a pairing request that lands in
+    // that window used to be dropped, leaving the QR on screen instead.
+    if (this.starting) {
+      this.queued = opts;
+      return;
+    }
+    const { phone } = opts;
     this.starting = true;
     // A leftover "pairing" mode would swallow every qr event and leave the
     // screen stuck on "connecting" after a failed code or a logout.
@@ -175,8 +181,19 @@ class WhatsApp extends EventEmitter {
           const loggedOut = code === this.getBaileys().DisconnectReason?.loggedOut;
           this.qr = null;
           if (loggedOut) {
-            this.setState("logged_out");
-            this.wipeSession();
+            if (this.mode === "pairing") {
+              // A wrong or unregistered number comes back as 401, which used to
+              // look like "you are logged out" instead of a fixable mistake.
+              this.pairing = null;
+              this.lastPhone = null;
+              this.mode = null;
+              this.pairingError = "WhatsApp did not accept that number. Check the country code and that the number has WhatsApp, then try again.";
+              this.wipeSession();
+              this.setState("pairing_error");
+            } else {
+              this.setState("logged_out");
+              this.wipeSession();
+            }
           } else {
             this.setState(this.mode === "pairing" ? "pairing" : "close");
             this.retry = Math.min(this.retry + 1, 5);
@@ -237,6 +254,11 @@ class WhatsApp extends EventEmitter {
       this.emit("log", `start failed: ${e.message}`);
     } finally {
       this.starting = false;
+      if (this.queued) {
+        const next = this.queued;
+        this.queued = null;
+        setTimeout(() => this.start(next).catch(() => {}), 150);
+      }
     }
   }
 
