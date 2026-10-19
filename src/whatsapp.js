@@ -107,45 +107,29 @@ class WhatsApp extends EventEmitter {
 
       sock.ev.on("creds.update", () => { if (this.sock === sock) saveCreds(); });
 
-      // Pairing code has to be asked for after the socket exists but before the
-      // QR is printed; Baileys rejects it once the device is registered.
-      if (phone) {
-        const digits = String(phone).replace(/\D/g, "");
-        if (digits.length >= 8) {
-          this.mode = "pairing";
-          this.lastPhone = digits;
-          this.pairing = null;
+      // One request = one code. The code is tied to this socket, so it is asked
+      // for exactly once, as soon as the handshake reports ready (the first qr
+      // event), and never regenerated behind the user's back.
+      let asked = false;
+      const askOnce = async () => {
+        if (asked || this.sock !== sock || this.state === "open") return;
+        asked = true;
+        try {
+          const code = await sock.requestPairingCode(this.lastPhone);
+          if (!code) throw new Error("WhatsApp did not return a code");
+          this.pairing = { code, phone: this.lastPhone };
           this.pairingError = null;
-          // Baileys answers only once the noise handshake is up; asking in the
-          // same tick returns nothing and the code never reaches WhatsApp.
-          const ask = async () => {
-            if (this.sock !== sock || this.state === "open") return false;
-            try {
-              const code = await sock.requestPairingCode(digits);
-              if (!code) throw new Error("WhatsApp did not return a code");
-              this.pairing = { code, phone: digits };
-              this.pairingError = null;
-              this.setState("pairing");
-              this.emit("pairing", this.pairing);
-              return true;
-            } catch (e) {
-              this.pairingError = e.message || "Pairing failed";
-              this.emit("log", `pairing failed: ${this.pairingError}`);
-              return false;
-            }
-          };
-          setTimeout(async () => {
-            if (this.sock !== sock || this.state === "open" || this.pairing) return;
-            if (await ask()) return;
-            setTimeout(async () => {
-              if (this.sock !== sock || this.state === "open" || this.pairing) return;
-              if (!(await ask())) {
-                this.setState("pairing_error");
-                this.emit("pairing:error", { message: this.pairingError });
-              }
-            }, 2500);
-          }, 1500);
+          this.setState("pairing");
+          this.emit("pairing", this.pairing);
+        } catch (e) {
+          this.pairingError = e.message || "Pairing failed";
+          this.setState("pairing_error");
+          this.emit("pairing:error", { message: this.pairingError });
         }
+      };
+      if (this.mode === "pairing") {
+        // qr is the "socket is ready" signal; fall back to a timer if it is slow.
+        this.pairTimer = setTimeout(() => askOnce(), 6000);
       }
 
       sock.ev.on("connection.update", async (u) => {
@@ -154,7 +138,11 @@ class WhatsApp extends EventEmitter {
         if (this.sock !== sock) return;
         const { connection, lastDisconnect, qr } = u;
         if (qr) {
-          if (this.mode === "pairing") return; // the code owns the screen now
+          if (this.mode === "pairing") {
+            clearTimeout(this.pairTimer);
+            askOnce();
+            return;
+          }
           try {
             const png = await QRCode.toDataURL(qr, { margin: 1, width: 320, color: { dark: "#0b1f1a", light: "#ffffff" } });
             if (png === this.qr) return; // same QR, no need to redraw the client
@@ -172,6 +160,8 @@ class WhatsApp extends EventEmitter {
           this.pairing = null;
           this.mode = null;
           this.pairingError = null;
+          this.codeIssued = false;
+          clearTimeout(this.pairTimer);
           this.retry = 0;
           this.setState("open");
           this.emit("ready", store.getMe());
@@ -180,6 +170,18 @@ class WhatsApp extends EventEmitter {
           const code = lastDisconnect?.error?.output?.statusCode;
           const loggedOut = code === this.getBaileys().DisconnectReason?.loggedOut;
           this.qr = null;
+          if (this.mode === "pairing") {
+            clearTimeout(this.pairTimer);
+            this.mode = null;
+            this.lastPhone = null;
+            this.pairingError = this.pairing
+              ? "The connection dropped before the phone finished. Ask for a new code."
+              : "WhatsApp closed the connection before the code was issued. Try again.";
+            this.pairing = null;
+            this.wipeSession();
+            this.setState("pairing_error");
+            return; // no silent retry, no new code
+          }
           if (loggedOut) {
             if (this.mode === "pairing") {
               // A wrong or unregistered number comes back as 401, which used to
