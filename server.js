@@ -17,9 +17,26 @@ const ALLOWED = String(process.env.ALLOWED_NUMBER || "").replace(/\D/g, "");
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: false } });
-const upload = multer({ dest: path.join(__dirname, "data", "uploads"), limits: { fileSize: 64 * 1024 * 1024 } });
+// Vercel (and any read-only serverless filesystem) only allows writes in /tmp.
+// multer creates its destination directory at construction time, so pointing it
+// at data/uploads there throws EROFS before a single route can answer.
+const SERVERLESS_PAGE = "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>WhatsWeb needs a persistent server</title>\n<style>\n  :root { color-scheme: dark; }\n  body {\n    margin: 0; min-height: 100vh; display: grid; place-items: center;\n    background: #0b141a; color: #e9edef;\n    font: 15px/1.6 \"Segoe UI\", system-ui, -apple-system, Roboto, Arial, sans-serif;\n    padding: 24px;\n  }\n  main { max-width: 620px; }\n  h1 { font-size: 24px; margin: 0 0 8px; font-weight: 600; }\n  p { color: #8696a0; margin: 0 0 14px; }\n  ul { color: #8696a0; padding-left: 20px; margin: 0 0 16px; }\n  li { margin-bottom: 6px; }\n  code, pre {\n    background: #111b21; border: 1px solid #22303a; border-radius: 8px;\n    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;\n    font-size: 13px;\n  }\n  code { padding: 1px 6px; }\n  pre { padding: 12px 14px; overflow: auto; color: #d7e2e7; }\n  .badge {\n    display: inline-flex; align-items: center; gap: 8px;\n    background: rgba(241,92,109,.12); color: #ff9aa6;\n    border: 1px solid rgba(241,92,109,.3);\n    border-radius: 999px; padding: 4px 12px; font-size: 13px; margin-bottom: 18px;\n  }\n  a { color: #53bdeb; }\n</style>\n</head>\n<body>\n<main>\n  <div class=\"badge\">503 &middot; wrong kind of host</div>\n  <h1>This app cannot run on Vercel</h1>\n  <p>\n    WhatsWeb keeps a long-lived socket open to WhatsApp and stores the linked-device\n    credentials on disk. Vercel functions are created per request and their filesystem\n    is read-only, so the QR would appear and die with the same request.\n  </p>\n  <p>Run it on anything that keeps a Node process alive, with a persistent disk:</p>\n  <ul>\n    <li>Railway, Render, Fly.io, a VPS, or Docker on your own machine</li>\n    <li>Any host where <code>npm start</code> stays running</li>\n  </ul>\n  <pre>git clone https://github.com/mzazi89/whatsappweb\ncd whatsappweb\nnpm install\ncp .env.example .env\nnpm start</pre>\n  <p>\n    The full setup, the environment variables and the deployment notes are in the\n    <a href=\"https://github.com/mzazi89/whatsappweb#readme\">README</a>.\n  </p>\n</main>\n</body>\n</html>\n";
+const ON_SERVERLESS = !!process.env.VERCEL;
+const UPLOAD_DIR = ON_SERVERLESS ? path.join(require("os").tmpdir(), "whatsweb-uploads") : path.join(__dirname, "data", "uploads");
+const upload = multer({ dest: UPLOAD_DIR, limits: { fileSize: 64 * 1024 * 1024 } });
 
 app.use(express.json({ limit: "1mb" }));
+
+// A WhatsApp companion needs a process that stays alive: the socket to WhatsApp
+// is long-lived and the session lives on disk. Serverless functions are created
+// per request, so linking can never survive there. Say so instead of failing 500.
+if (ON_SERVERLESS) {
+  app.get("/api/health", (req, res) => res.json({ ok: true, serverless: true, supported: false }));
+  app.use((req, res) => {
+    res.status(503).type("html").send(SERVERLESS_PAGE);
+  });
+  module.exports = app;
+} else {
 app.use(express.static(path.join(__dirname, "public"), { index: false }));
 
 // ── gate ─────────────────────────────────────────────────────────────────────
@@ -161,9 +178,12 @@ wa.on("message:update", (payload) => io.emit("message:update", payload));
 wa.on("presence", (payload) => io.emit("presence", payload));
 wa.on("log", (line) => console.log("[wa]", line));
 
-server.listen(PORT, () => {
-  console.log(`WhatsWeb on http://localhost:${PORT}`);
-  if (!PASSWORD) console.log("! ACCESS_PASSWORD is empty: anyone who can reach this port can read the chats.");
-  const hasSession = fs.existsSync(path.join(__dirname, "data", "session", "creds.json"));
-  if (hasSession) wa.start().catch(() => {});
-});
+if (!ON_SERVERLESS) {
+  server.listen(PORT, () => {
+    console.log(`WhatsWeb on http://localhost:${PORT}`);
+    if (!PASSWORD) console.log("! ACCESS_PASSWORD is empty: anyone who can reach this port can read the chats.");
+    const hasSession = fs.existsSync(path.join(__dirname, "data", "session", "creds.json"));
+    if (hasSession) wa.start().catch(() => {});
+  });
+}
+}

@@ -36,6 +36,8 @@ Open `http://localhost:3000`.
 1. The QR appears in the browser; on the phone open **WhatsApp → Settings → Linked devices → Link a device** and scan it. The QR refreshes itself every few seconds.
 2. No camera? Type the number with the country code in the box under the QR and press **Link with phone number**. WhatsApp shows an 8-character code on the phone; enter it there. The page displays the code to type.
 
+> **Not for Vercel.** Serverless functions are created per request and have a read-only filesystem, so the WhatsApp socket and the linked-device session cannot survive. Deployed there, the app answers every route with an honest 503 page instead of crashing. Use a host that keeps a process alive.
+
 ## Configuration
 
 | Variable | Default | Meaning |
