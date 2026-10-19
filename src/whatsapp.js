@@ -61,6 +61,12 @@ class WhatsApp extends EventEmitter {
   async start({ phone } = {}) {
     if (this.starting) return;
     this.starting = true;
+    // A leftover "pairing" mode would swallow every qr event and leave the
+    // screen stuck on "connecting" after a failed code or a logout.
+    const wanted = String(phone || "").replace(/\D/g, "");
+    this.mode = wanted.length >= 8 ? "pairing" : null;
+    this.lastPhone = wanted.length >= 8 ? wanted : null;
+    if (this.mode !== "pairing") this.pairingError = null;
     try {
       const { makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion, Browsers } = this.getBaileys();
       const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
@@ -455,6 +461,8 @@ class WhatsApp extends EventEmitter {
       if (this.sock) this.sock.end(undefined);
     } catch (e) {}
     this.sock = null;
+    this.mode = null;
+    this.pairing = null;
     this.setState("connecting");
     setTimeout(() => this.start().catch(() => {}), 500);
   }
