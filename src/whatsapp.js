@@ -168,15 +168,27 @@ class WhatsApp extends EventEmitter {
         }
         if (connection === "close") {
           const code = lastDisconnect?.error?.output?.statusCode;
+          this.emit("log", `close code=${code} reason=${(lastDisconnect?.error?.message || "").slice(0, 120)}`);
           const loggedOut = code === this.getBaileys().DisconnectReason?.loggedOut;
           this.qr = null;
           if (this.mode === "pairing") {
             clearTimeout(this.pairTimer);
+            const restart = code === 515; // restart required: the link may be fine
+            if (restart) {
+              this.mode = null;
+              this.lastPhone = null;
+              this.pairing = null;
+              this.setState("connecting");
+              setTimeout(() => this.start().catch(() => {}), 600);
+              return;
+            }
             this.mode = null;
             this.lastPhone = null;
-            this.pairingError = this.pairing
-              ? "The connection dropped before the phone finished. Ask for a new code."
-              : "WhatsApp closed the connection before the code was issued. Try again.";
+            this.pairingError = code === 401
+              ? "WhatsApp did not accept that number. Check the country code and that the number has WhatsApp, then try again."
+              : this.pairing
+                ? "The connection dropped before the phone finished. Ask for a new code."
+                : "WhatsApp closed the connection before the code was issued. Try again.";
             this.pairing = null;
             this.wipeSession();
             this.setState("pairing_error");

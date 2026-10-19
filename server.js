@@ -87,6 +87,8 @@ app.post("/api/link", async (req, res) => {
   wa.start({ phone: phone || undefined }).catch((e) => console.error("link:", e.message));
 });
 
+app.get("/api/diag", (req, res) => res.json({ ...wa.snapshot(), logs: recent }));
+
 app.get("/api/chats", (req, res) => res.json({ chats: wa.chats() }));
 
 app.get("/api/chats/:jid/messages", (req, res) => {
@@ -176,7 +178,12 @@ wa.on("chats:refresh", (chats) => io.emit("chats", chats));
 wa.on("message", (payload) => io.emit("message", payload));
 wa.on("message:update", (payload) => io.emit("message:update", payload));
 wa.on("presence", (payload) => io.emit("presence", payload));
-wa.on("log", (line) => console.log("[wa]", line));
+const recent = [];
+wa.on("log", (line) => {
+  recent.push(`${new Date().toISOString()} ${line}`);
+  if (recent.length > 120) recent.shift();
+  console.log("[wa]", line);
+});
 
 if (!ON_SERVERLESS) {
   server.listen(PORT, () => {
