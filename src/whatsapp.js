@@ -32,7 +32,11 @@ class WhatsApp extends EventEmitter {
   constructor() {
     super();
     this.sock = null;
-    this.state = "idle"; // idle | qr | pairing | connecting | open | close | logged_out
+    this.state = "idle"; // idle | qr | pairing | pairing_error | connecting | open | close | logged_out
+    this.mode = null;        // "pairing" while a pairing code is in flight
+    this.pairingError = null;
+    this.lastPhone = null;
+    this.retry = 0;
     this.qr = null;
     this.pairing = null;
     this.raw = new Map(); // message id -> raw WAMessage (for media download)
@@ -49,6 +53,7 @@ class WhatsApp extends EventEmitter {
       state: this.state,
       qr: this.qr,
       pairing: this.pairing,
+      pairingError: this.pairingError,
       me: store.getMe(),
     };
   }
@@ -86,22 +91,50 @@ class WhatsApp extends EventEmitter {
       if (phone) {
         const digits = String(phone).replace(/\D/g, "");
         if (digits.length >= 8) {
-          try {
-            const code = await sock.requestPairingCode(digits);
-            this.pairing = { code, phone: digits };
-            this.setState("pairing");
-          } catch (e) {
-            this.emit("log", `pairing failed: ${e.message}`);
-          }
+          this.mode = "pairing";
+          this.lastPhone = digits;
+          this.pairing = null;
+          this.pairingError = null;
+          // Baileys answers only once the noise handshake is up; asking in the
+          // same tick returns nothing and the code never reaches WhatsApp.
+          const ask = async () => {
+            if (this.sock !== sock || this.state === "open") return false;
+            try {
+              const code = await sock.requestPairingCode(digits);
+              if (!code) throw new Error("WhatsApp did not return a code");
+              this.pairing = { code, phone: digits };
+              this.pairingError = null;
+              this.setState("pairing");
+              this.emit("pairing", this.pairing);
+              return true;
+            } catch (e) {
+              this.pairingError = e.message || "Pairing failed";
+              this.emit("log", `pairing failed: ${this.pairingError}`);
+              return false;
+            }
+          };
+          setTimeout(async () => {
+            if (this.sock !== sock || this.state === "open" || this.pairing) return;
+            if (await ask()) return;
+            setTimeout(async () => {
+              if (this.sock !== sock || this.state === "open" || this.pairing) return;
+              if (!(await ask())) {
+                this.setState("pairing_error");
+                this.emit("pairing:error", { message: this.pairingError });
+              }
+            }, 2500);
+          }, 1500);
         }
       }
 
       sock.ev.on("connection.update", async (u) => {
         const { connection, lastDisconnect, qr } = u;
         if (qr) {
+          if (this.mode === "pairing") return; // the code owns the screen now
           try {
-            this.qr = await QRCode.toDataURL(qr, { margin: 1, width: 320, color: { dark: "#0b1f1a", light: "#ffffff" } });
-            this.pairing = null;
+            const png = await QRCode.toDataURL(qr, { margin: 1, width: 320, color: { dark: "#0b1f1a", light: "#ffffff" } });
+            if (png === this.qr) return; // same QR, no need to redraw the client
+            this.qr = png;
             this.setState("qr");
           } catch (e) {
             this.emit("log", `qr render failed: ${e.message}`);
@@ -113,6 +146,9 @@ class WhatsApp extends EventEmitter {
           store.setMe({ id: sock.user?.id, number: me, name: sock.user?.name || "" });
           this.qr = null;
           this.pairing = null;
+          this.mode = null;
+          this.pairingError = null;
+          this.retry = 0;
           this.setState("open");
           this.emit("ready", store.getMe());
         }
@@ -124,9 +160,13 @@ class WhatsApp extends EventEmitter {
             this.setState("logged_out");
             this.wipeSession();
           } else {
-            this.setState("close");
-            const wait = code === 428 ? 1200 : 3000; // 428 = connection replaced
-            setTimeout(() => this.start().catch(() => {}), wait);
+            this.setState(this.mode === "pairing" ? "pairing" : "close");
+            this.retry = Math.min(this.retry + 1, 5);
+            const wait = code === 428 ? 1500 : Math.min(3000 * this.retry, 30000);
+            setTimeout(() => {
+              if (this.state === "open") return;
+              this.start({ phone: this.lastPhone || undefined }).catch(() => {});
+            }, wait);
           }
         }
       });

@@ -30,6 +30,10 @@ button { cursor: pointer; }
 .tiny { font-size: 12px; }
 .err { color: var(--danger); min-height: 18px; margin: 6px 0 0; font-size: 13px; }
 .err.status { color: var(--muted); }
+.err.bad { color: var(--danger); }
+.qr-note { margin: 10px 0 0; text-align: center; }
+.pair-hint { color: var(--muted); font-size: 12.5px; margin: 8px 0 0; line-height: 1.5; }
+.pair-hint b { color: var(--text); font-weight: 600; }
 
 .app {
   display: grid;

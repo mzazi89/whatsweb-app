@@ -20,7 +20,7 @@
     chatName: $("chat-name"), chatSub: $("chat-sub"), chatAvatar: $("chat-avatar"),
     text: $("text"), send: $("btn-send"), attach: $("attach"), file: $("attach"),
     link: $("link"), qr: $("qr"), qrSkel: $("qr-skel"), pairForm: $("pair-form"),
-    phone: $("phone"), pairBtn: $("pair-btn"), pairCode: $("pair-code"), linkErr: $("link-err"),
+    phone: $("phone"), pairBtn: $("pair-btn"), pairCode: $("pair-code"), pairHint: $("pair-hint"), linkErr: $("link-err"),
     toast: $("toast"),
   };
 
@@ -261,7 +261,7 @@
     const showOverlay = !snap.me || snap.state === "qr" || snap.state === "pairing" || snap.state === "logged_out";
     els.link.hidden = !showOverlay;
     if (snap.state === "qr" && snap.qr) {
-      els.qr.src = snap.qr;
+      if (els.qr.src !== snap.qr) els.qr.src = snap.qr;
       els.qr.hidden = false;
       els.qrSkel.style.display = "none";
     } else {
@@ -271,13 +271,22 @@
     if (snap.state === "pairing" && snap.pairing) {
       els.pairCode.hidden = false;
       els.pairCode.textContent = String(snap.pairing.code || "").replace(/(.{4})/g, "$1 ").trim();
+      els.pairHint.hidden = false;
       els.linkErr.textContent = "";
+      els.linkErr.classList.remove("status", "bad");
     } else {
       els.pairCode.hidden = true;
+      els.pairHint.hidden = true;
     }
-    const status = (txt) => { els.linkErr.textContent = txt; els.linkErr.classList.toggle("status", !!txt); };
+    const status = (txt, bad) => {
+      els.linkErr.textContent = txt;
+      els.linkErr.classList.toggle("status", !!txt && !bad);
+      els.linkErr.classList.toggle("bad", !!bad);
+    };
     if (snap.state === "connecting") status("Connecting…");
     else if (snap.state === "close") status("Connection lost, reconnecting…");
+    else if (snap.state === "pairing") status("");
+    else if (snap.state === "pairing_error") status(snap.pairingError || "WhatsApp did not answer. Try again.", true);
     else if (snap.state === "open") status("");
     if (snap.chats) { state.chats = snap.chats; renderChats(); }
   }
