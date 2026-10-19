@@ -9,12 +9,15 @@
     current: null,
     messages: [],
     filter: "",
+    snapState: "idle",
+    loadingTimedOut: false,
     typing: new Map(), // jid -> {on, until}
     avatars: new Map(),
   };
 
   const els = {
     meName: $("me-name"), meNum: $("me-num"), meAvatar: $("me-avatar"),
+    railLoading: $("rail-loading"), loadingScreen: $("loading-screen"), loadingNote: $("loading-note"),
     chats: $("chats"), railEmpty: $("rail-empty"), search: $("search"),
     blank: $("blank"), chat: $("chat"), thread: $("thread"),
     chatName: $("chat-name"), chatSub: $("chat-sub"), chatAvatar: $("chat-avatar"),
@@ -81,7 +84,9 @@
 
   function renderChats() {
     const list = visibleChats();
-    els.railEmpty.hidden = list.length > 0;
+    const waiting = state.snapState === "open" && !state.chats.length && !state.loadingTimedOut;
+    els.railLoading.hidden = !waiting;
+    els.railEmpty.hidden = list.length > 0 || waiting;
     els.chats.innerHTML = list.map((c) => {
       const typing = state.typing.get(c.id);
       const sub = typing && typing.on ? "typing…" : (c.last || "");
@@ -193,10 +198,21 @@
     }
   }
 
+  function renderBlank() {
+    const waiting = state.snapState === "open" && !state.chats.length && !state.loadingTimedOut;
+    els.loadingScreen.hidden = !(waiting && !state.current);
+    els.blank.hidden = waiting || !!state.current;
+    if (waiting) {
+      els.loadingNote.textContent = state.me
+        ? "Linked as " + (state.me.number || state.me.name || "") + " · first sync in progress"
+        : "This usually takes a few seconds.";
+    }
+  }
+
   function closeChat() {
     state.current = null;
     els.chat.hidden = true;
-    els.blank.hidden = false;
+    renderBlank();
     document.body.classList.remove("show-chat");
   }
 
@@ -252,13 +268,23 @@
   // ── link overlay ───────────────────────────────────────────────────────────
   function renderState(snap) {
     state.me = snap.me || null;
+    if (snap.state === "open" && state.snapState !== "open") {
+      state.loadingTimedOut = false;
+      setTimeout(() => {
+        state.loadingTimedOut = true;
+        renderChats();
+        renderBlank();
+      }, 30000);
+    }
+    state.snapState = snap.state;
     if (snap.me) {
       els.meName.textContent = snap.me.name || "Linked";
       els.meNum.textContent = snap.me.number ? "+" + snap.me.number : "";
       els.meAvatar.textContent = initial(snap.me.name || snap.me.number);
     }
     const needsLink = ["idle", "qr", "pairing", "connecting", "close", "logged_out"].includes(snap.state) && !snap.me;
-    const showOverlay = !snap.me || snap.state === "qr" || snap.state === "pairing" || snap.state === "logged_out";
+    const showOverlay = snap.state !== "open" &&
+      (!snap.me || ["qr", "pairing", "pairing_error", "logged_out"].includes(snap.state));
     els.link.hidden = !showOverlay;
     const pairing = snap.state === "pairing" || snap.state === "pairing_error";
     els.qrWrap.style.display = pairing ? "none" : "";
@@ -297,9 +323,22 @@
     if (snap.chats) { state.chats = snap.chats; renderChats(); }
   }
 
+  // A dropped socket event should not leave the page stale.
+  setInterval(async () => {
+    if (document.hidden) return;
+    try {
+      const snap = await api("/api/state");
+      renderState(snap);
+      if (state.snapState === "open") {
+        const { chats } = await api("/api/chats");
+        if (chats && chats.length !== state.chats.length) { state.chats = chats; renderChats(); renderBlank(); }
+      }
+    } catch (e) {}
+  }, 15000);
+
   // ── events ─────────────────────────────────────────────────────────────────
   socket.on("state", renderState);
-  socket.on("chats", (chats) => { state.chats = chats || []; renderChats(); });
+  socket.on("chats", (chats) => { state.chats = chats || []; renderChats(); renderBlank(); });
 
   socket.on("message", ({ chat, message }) => {
     if (!chat) return;

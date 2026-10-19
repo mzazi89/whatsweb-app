@@ -40,9 +40,22 @@
       <p>No chats yet.</p>
       <p class="muted">Link your phone to load them.</p>
     </div>
+
+    <div class="rail-loading" id="rail-loading" hidden>
+      <span class="spinner"></span>
+      <p>Loading your chats…</p>
+      <p class="muted tiny">WhatsApp is sending your recent conversations. First link takes a moment.</p>
+    </div>
   </aside>
 
   <main class="pane" id="pane">
+    <div class="blank loading-screen" id="loading-screen" hidden>
+      <span class="spinner"></span>
+      <h2>Loading your chats…</h2>
+      <p class="muted">Linking worked. WhatsApp is sending your recent conversations now.</p>
+      <p class="muted tiny" id="loading-note">This usually takes a few seconds.</p>
+    </div>
+
     <div class="blank" id="blank">
       <div class="blank-art" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="120" height="120"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1 1 12 20Z"/></svg>

@@ -278,3 +278,15 @@ button { cursor: pointer; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: #374248; border-radius: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
+
+.rail-loading {
+  padding: 28px 18px; text-align: center; color: var(--muted);
+}
+.rail-loading p { margin: 10px 0 0; }
+.loading-screen {
+  display: grid; place-items: center; text-align: center; gap: 6px;
+}
+.loading-screen h2 { margin: 10px 0 0; font-size: 20px; }
+.loading-screen .spinner { width: 34px; height: 34px; }
+
+.blank[hidden], .rail-loading[hidden] { display: none !important; }

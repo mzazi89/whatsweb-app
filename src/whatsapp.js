@@ -99,7 +99,9 @@ class WhatsApp extends EventEmitter {
         printQRInTerminal: false,
         browser: Browsers.ubuntu("Chrome"),
         markOnlineOnConnect: false,
-        syncFullHistory: false,
+        // A freshly linked companion only receives the chat list and recent
+        // messages when it asks for the history sync.
+        syncFullHistory: true,
         generateHighQualityLinkPreview: true,
       });
       this.sock = sock;
@@ -235,10 +237,12 @@ class WhatsApp extends EventEmitter {
         });
       });
 
-      sock.ev.on("messaging-history.set", ({ chats, messages, contacts }) => {
+      sock.ev.on("messaging-history.set", ({ chats, messages, contacts, isLatest }) => {
+        this.emit("log", `history chunk chats=${(chats || []).length} msgs=${(messages || []).length} latest=${!!isLatest}`);
         (contacts || []).forEach((c) => this.ingestContact(c));
         (chats || []).forEach((c) => this.ingestChat(c));
         (messages || []).forEach((m) => this.ingest(m, false));
+        this.historyDone = !!isLatest;
         this.emit("chats:refresh", this.chats());
       });
 
