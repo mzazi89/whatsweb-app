@@ -6,3 +6,5 @@ data/store.json
 *.log
 .DS_Store
 .vercel
+.vercel
+.env*
