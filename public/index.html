@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111b21">
+<title>WhatsWeb</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="app" id="app">
+
+  <aside class="rail" id="rail">
+    <header class="rail-top">
+      <div class="me" id="me">
+        <div class="avatar" id="me-avatar">?</div>
+        <div class="me-text">
+          <span class="me-name" id="me-name">Not linked</span>
+          <span class="me-num" id="me-num"></span>
+        </div>
+      </div>
+      <div class="rail-actions">
+        <button class="icon" id="btn-refresh" title="Reload chats" aria-label="Reload chats">
+          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7Z"/></svg>
+        </button>
+        <button class="icon" id="btn-logout" title="Unlink this device" aria-label="Unlink">
+          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M16 13v-2H7V8l-5 4 5 4v-3h9Zm3-10H11a2 2 0 0 0-2 2v3h2V5h8v14h-8v-3H9v3a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="search">
+      <svg viewBox="0 0 24 24" class="search-icon"><path fill="currentColor" d="M10 4a6 6 0 1 0 3.5 10.9l4.8 4.8 1.4-1.4-4.8-4.8A6 6 0 0 0 10 4Zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"/></svg>
+      <input id="search" type="search" placeholder="Search or start a new chat" autocomplete="off">
+    </div>
+
+    <div class="chats" id="chats"></div>
+
+    <div class="rail-empty" id="rail-empty">
+      <p>No chats yet.</p>
+      <p class="muted">Link your phone to load them.</p>
+    </div>
+  </aside>
+
+  <main class="pane" id="pane">
+    <div class="blank" id="blank">
+      <div class="blank-art" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="120" height="120"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1 1 12 20Z"/></svg>
+      </div>
+      <h2>WhatsWeb</h2>
+      <p class="muted">Send and receive messages without keeping your phone online.</p>
+      <p class="muted tiny">Your messages stay on this machine. Nothing is stored anywhere else.</p>
+    </div>
+
+    <section class="chat" id="chat" hidden>
+      <header class="chat-top">
+        <button class="icon back" id="btn-back" aria-label="Back">
+          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20v-2Z"/></svg>
+        </button>
+        <div class="avatar" id="chat-avatar">?</div>
+        <div class="chat-who">
+          <span class="chat-name" id="chat-name">Chat</span>
+          <span class="chat-sub" id="chat-sub"></span>
+        </div>
+      </header>
+
+      <div class="thread" id="thread"></div>
+
+      <footer class="composer">
+        <button class="icon" id="btn-attach" title="Attach a file" aria-label="Attach">
+          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M16.5 6.5 8.9 14a2 2 0 0 0 2.8 2.8l7.6-7.6a4 4 0 0 0-5.7-5.6l-8.5 8.5a6 6 0 0 0 8.5 8.5l7-7-1.4-1.4-7 7A4 4 0 1 1 6.5 12.4l8.5-8.5a2 2 0 0 1 2.8 2.8Z"/></svg>
+        </button>
+        <input id="attach" type="file" hidden>
+        <textarea id="text" rows="1" placeholder="Type a message"></textarea>
+        <button class="send" id="btn-send" aria-label="Send">
+          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M2 21 23 12 2 3v7l15 2-15 2v7Z"/></svg>
+        </button>
+      </footer>
+    </section>
+  </main>
+
+  <div class="link-overlay" id="link" hidden>
+    <div class="link-card">
+      <h2>Link your WhatsApp</h2>
+      <p class="muted">Open WhatsApp on your phone, tap <b>Settings → Linked devices → Link a device</b>, then scan this code.</p>
+      <div class="qr-wrap">
+        <img id="qr" alt="WhatsApp link QR code" hidden>
+        <div class="qr-skel" id="qr-skel"><span class="spinner"></span></div>
+      </div>
+      <div class="or"><span>or</span></div>
+      <form class="pair" id="pair-form">
+        <input id="phone" type="tel" inputmode="numeric" placeholder="Phone with country code, e.g. 254712345678" autocomplete="tel">
+        <button type="submit" id="pair-btn">Link with phone number</button>
+      </form>
+      <p class="pair-code" id="pair-code" hidden></p>
+      <p class="err" id="link-err"></p>
+      <p class="muted tiny">The phone stays the main device. You can unlink from either side at any time.</p>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
