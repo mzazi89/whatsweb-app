@@ -27,6 +27,17 @@ function loadBaileys() {
 
 const jidToNumber = (jid) => String(jid || "").split("@")[0].split(":")[0];
 const isGroup = (jid) => String(jid || "").endsWith("@g.us");
+const isLid = (jid) => String(jid || "").endsWith("@lid");
+
+// +254 712 345 678 for Kenyan-style numbers, otherwise grouped digits.
+const prettyNumber = (jid) => {
+  const n = String(jid || "").split("@")[0].split(":")[0].replace(/\D/g, "");
+  if (!n) return "";
+  if (!/^\d+$/.test(n)) return "";
+  if (n.length === 12) return `+${n.slice(0, 3)} ${n.slice(3, 6)} ${n.slice(6, 9)} ${n.slice(9)}`;
+  if (n.length === 11) return `+${n.slice(0, 1)} ${n.slice(1, 4)} ${n.slice(4, 7)} ${n.slice(7)}`;
+  return `+${n}`;
+};
 
 class WhatsApp extends EventEmitter {
   constructor() {
@@ -40,6 +51,8 @@ class WhatsApp extends EventEmitter {
     this.qr = null;
     this.pairing = null;
     this.raw = new Map(); // message id -> raw WAMessage (for media download)
+    this.groupNames = new Map(); // jid -> subject, resolved lazily
+    this.groupLookups = new Set();
     this.starting = false;
   }
 
@@ -301,16 +314,47 @@ class WhatsApp extends EventEmitter {
     });
   }
 
+  // Group names only arrive with metadata, not with the chat rows.
+  async ensureGroupName(jid) {
+    if (!isGroup(jid) || this.groupNames.has(jid) || this.groupLookups.has(jid)) return;
+    this.groupLookups.add(jid);
+    try {
+      const meta = await this.sock.groupMetadata(jid);
+      const subject = meta?.subject;
+      if (subject) {
+        this.groupNames.set(jid, subject);
+        store.upsertChat(jid, { name: subject });
+        this.emit("chats:refresh", this.chats());
+      }
+    } catch (e) {
+      this.emit("log", `group metadata failed ${jid}: ${e.message}`);
+    } finally {
+      this.groupLookups.delete(jid);
+    }
+  }
+
   ingestChat(c) {
     const jid = c.id;
     if (!jid || jid === "status@broadcast") return;
+    if (isGroup(jid)) {
+      if (c.name) this.groupNames.set(jid, c.name);
+      else this.ensureGroupName(jid);
+    }
     store.upsertChat(jid, {
-      name: c.name || undefined,
+      name: c.name || this.groupNames.get(jid) || undefined,
       unread: typeof c.unreadCount === "number" ? c.unreadCount : undefined,
       updated: c.conversationTimestamp ? Number(c.conversationTimestamp) * 1000 : undefined,
       pinned: c.pinned ? true : undefined,
       archived: c.archived ? true : undefined,
     });
+  }
+
+  // Remember the name the sender publishes, so a chat is never a bare number.
+  rememberPushName(jid, pushName) {
+    if (!jid || !pushName) return;
+    store.upsertContact(jid, { pushName });
+    const chat = store.chat(jid);
+    if (!chat?.name && !isGroup(jid)) store.upsertChat(jid, { name: pushName });
   }
 
   // Turns a raw WAMessage into the small shape the UI needs.
@@ -336,6 +380,10 @@ class WhatsApp extends EventEmitter {
     else if (inner.documentMessage) kind = "document";
     else if (inner.stickerMessage) kind = "sticker";
     else if (!text && inner.protocolMessage) kind = "system";
+
+    // A DM carries the sender's published name; a group carries the member's.
+    this.rememberPushName(jid, raw.pushName);
+    if (key.participant) this.rememberPushName(key.participant, raw.pushName);
 
     return {
       id: key.id,
@@ -387,11 +435,17 @@ class WhatsApp extends EventEmitter {
   chatView(jid) {
     const chat = store.chat(jid) || { id: jid, unread: 0 };
     const contact = store.contact(jid);
-    const name = chat.name || contact?.name || contact?.pushName || (isGroup(jid) ? "Group" : jidToNumber(jid));
+    const group = isGroup(jid);
+    const name =
+      chat.name ||
+      contact?.name ||
+      contact?.pushName ||
+      (group ? this.groupNames.get(jid) : "") ||
+      (group ? "Group" : isLid(jid) ? "Unknown contact" : prettyNumber(jid) || "Unknown contact");
     return {
       id: jid,
       name,
-      number: isGroup(jid) ? "" : jidToNumber(jid),
+      number: group || isLid(jid) ? "" : prettyNumber(jid),
       group: isGroup(jid),
       unread: chat.unread || 0,
       last: chat.last || "",

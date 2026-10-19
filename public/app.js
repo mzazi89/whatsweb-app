@@ -180,7 +180,7 @@
     state.current = jid;
     const chat = state.chats.find((c) => c.id === jid) || { id: jid, name: jid, unread: 0 };
     els.chatName.textContent = chat.name || chat.number || jid;
-    els.chatSub.textContent = chat.group ? "Group" : "+" + (chat.number || "");
+    els.chatSub.textContent = chat.group ? "Group" : (chat.number || "");
     els.chatAvatar.textContent = initial(chat.name || chat.number);
     els.chat.hidden = false;
     els.blank.hidden = true;

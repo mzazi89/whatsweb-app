@@ -59,9 +59,11 @@ class Store {
     return this.meta.me;
   }
 
-  upsertContact(jid, patch) {
+  upsertContact(jid, patch = {}) {
     const cur = this.contacts.get(jid) || { id: jid };
-    const next = { ...cur, ...patch };
+    // undefined must not erase a name we already learned
+    const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
+    const next = { ...cur, ...clean };
     this.contacts.set(jid, next);
     return next;
   }
@@ -72,7 +74,8 @@ class Store {
 
   upsertChat(jid, patch = {}) {
     const cur = this.chats.get(jid) || { id: jid, unread: 0, messages: 0 };
-    const next = { ...cur, ...patch, updated: patch.updated || cur.updated || Date.now() };
+    const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
+    const next = { ...cur, ...clean, updated: clean.updated || cur.updated || Date.now() };
     this.chats.set(jid, next);
     this.save();
     return next;
