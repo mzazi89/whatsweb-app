@@ -19,8 +19,8 @@
     blank: $("blank"), chat: $("chat"), thread: $("thread"),
     chatName: $("chat-name"), chatSub: $("chat-sub"), chatAvatar: $("chat-avatar"),
     text: $("text"), send: $("btn-send"), attach: $("attach"), file: $("attach"),
-    link: $("link"), qr: $("qr"), qrSkel: $("qr-skel"), pairForm: $("pair-form"),
-    phone: $("phone"), pairBtn: $("pair-btn"), pairCode: $("pair-code"), pairHint: $("pair-hint"), linkErr: $("link-err"),
+    link: $("link"), qr: $("qr"), qrSkel: $("qr-skel"), qrWrap: $("qr-wrap"), qrNote: $("qr-note"), lead: $("link-lead"), pairForm: $("pair-form"),
+    phone: $("phone"), pairBtn: $("pair-btn"), pairCode: $("pair-code"), linkErr: $("link-err"),
     toast: $("toast"),
   };
 
@@ -260,6 +260,12 @@
     const needsLink = ["idle", "qr", "pairing", "connecting", "close", "logged_out"].includes(snap.state) && !snap.me;
     const showOverlay = !snap.me || snap.state === "qr" || snap.state === "pairing" || snap.state === "logged_out";
     els.link.hidden = !showOverlay;
+    const pairing = snap.state === "pairing" || snap.state === "pairing_error";
+    els.qrWrap.style.display = pairing ? "none" : "";
+    els.qrNote.style.display = pairing ? "none" : "";
+    els.lead.innerHTML = pairing
+      ? "Tap <b>Linked devices → Link a device → Link with phone number</b> on your phone, then type the code below."
+      : "Open WhatsApp on your phone, tap <b>Settings → Linked devices → Link a device</b>, then scan this code.";
     if (snap.state === "qr" && snap.qr) {
       if (els.qr.src !== snap.qr) els.qr.src = snap.qr;
       els.qr.hidden = false;
@@ -271,12 +277,12 @@
     if (snap.state === "pairing" && snap.pairing) {
       els.pairCode.hidden = false;
       els.pairCode.textContent = String(snap.pairing.code || "").replace(/(.{4})/g, "$1 ").trim();
-      els.pairHint.hidden = false;
+
       els.linkErr.textContent = "";
       els.linkErr.classList.remove("status", "bad");
     } else {
       els.pairCode.hidden = true;
-      els.pairHint.hidden = true;
+
     }
     const status = (txt, bad) => {
       els.linkErr.textContent = txt;
@@ -384,7 +390,11 @@
     try {
       const snap = await api("/api/state");
       renderState(snap);
-      if (!snap.me) api("/api/link", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(() => {});
+      // Only draw a QR when nothing is happening. Calling /api/link on load also
+      // reset a pairing code that was already on screen.
+      if (!snap.me && snap.state === "idle") {
+        api("/api/link", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(() => {});
+      }
     } catch (e) {
       toast(e.message);
     }

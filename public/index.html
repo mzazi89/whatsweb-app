@@ -82,19 +82,18 @@
   <div class="link-overlay" id="link" hidden>
     <div class="link-card">
       <h2>Link your WhatsApp</h2>
-      <p class="muted">Open WhatsApp on your phone, tap <b>Settings → Linked devices → Link a device</b>, then scan this code.</p>
-      <div class="qr-wrap">
+      <p class="muted" id="link-lead">Open WhatsApp on your phone, tap <b>Settings → Linked devices → Link a device</b>, then scan this code.</p>
+      <div class="qr-wrap" id="qr-wrap">
         <img id="qr" alt="WhatsApp link QR code" hidden>
         <div class="qr-skel" id="qr-skel"><span class="spinner"></span></div>
       </div>
-      <p class="muted tiny qr-note">WhatsApp rotates this code every 20 seconds. It updates here on its own.</p>
+      <p class="muted tiny qr-note" id="qr-note">WhatsApp rotates this code every 20 seconds. It updates here on its own.</p>
       <div class="or"><span>or</span></div>
       <form class="pair" id="pair-form">
         <input id="phone" type="tel" inputmode="numeric" placeholder="Phone with country code, e.g. 254712345678" autocomplete="tel">
         <button type="submit" id="pair-btn">Link with phone number</button>
       </form>
       <p class="pair-code" id="pair-code" hidden></p>
-      <p class="pair-hint" id="pair-hint" hidden>Open WhatsApp on the phone, tap <b>Linked devices → Link a device → Link with phone number</b>, then type the code above.</p>
       <p class="err" id="link-err"></p>
       <p class="muted tiny">The phone stays the main device. You can unlink from either side at any time.</p>
     </div>

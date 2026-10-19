@@ -63,10 +63,19 @@ class WhatsApp extends EventEmitter {
     this.starting = true;
     // A leftover "pairing" mode would swallow every qr event and leave the
     // screen stuck on "connecting" after a failed code or a logout.
+    // Never leave the old socket running: two sockets race for the same
+    // session and the QR then flips between them.
+    if (this.sock) {
+      try { this.sock.end(undefined); } catch (e) {}
+      this.sock = null;
+    }
     const wanted = String(phone || "").replace(/\D/g, "");
     this.mode = wanted.length >= 8 ? "pairing" : null;
     this.lastPhone = wanted.length >= 8 ? wanted : null;
-    if (this.mode !== "pairing") this.pairingError = null;
+    if (this.mode !== "pairing") {
+      this.pairing = null;
+      this.pairingError = null;
+    }
     try {
       const { makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion, Browsers } = this.getBaileys();
       const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
@@ -90,7 +99,7 @@ class WhatsApp extends EventEmitter {
       this.sock = sock;
       this.setState("connecting");
 
-      sock.ev.on("creds.update", saveCreds);
+      sock.ev.on("creds.update", () => { if (this.sock === sock) saveCreds(); });
 
       // Pairing code has to be asked for after the socket exists but before the
       // QR is printed; Baileys rejects it once the device is registered.
@@ -134,6 +143,9 @@ class WhatsApp extends EventEmitter {
       }
 
       sock.ev.on("connection.update", async (u) => {
+        // A replaced socket keeps emitting its close; acting on it wiped the
+        // session that the new socket had just created.
+        if (this.sock !== sock) return;
         const { connection, lastDisconnect, qr } = u;
         if (qr) {
           if (this.mode === "pairing") return; // the code owns the screen now
