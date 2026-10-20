@@ -25,7 +25,7 @@
     blank: $("blank"), chat: $("chat"), thread: $("thread"),
     chatName: $("chat-name"), chatSub: $("chat-sub"), chatAvatar: $("chat-avatar"),
     text: $("text"), send: $("btn-send"), attach: $("attach"), file: $("attach"),
-    link: $("link"), qr: $("qr"), qrSkel: $("qr-skel"), qrWrap: $("qr-wrap"), qrNote: $("qr-note"), lead: $("link-lead"), pairForm: $("pair-form"),
+    link: $("link"), lead: $("link-lead"), pairForm: $("pair-form"),
     phone: $("phone"), pairBtn: $("pair-btn"), pairCode: $("pair-code"), linkErr: $("link-err"),
     toast: $("toast"),
   };
@@ -343,24 +343,12 @@
       els.meNum.textContent = snap.me.number ? "+" + snap.me.number : "";
       els.meAvatar.textContent = initial(snap.me.name || snap.me.number);
     }
-    const needsLink = ["idle", "qr", "pairing", "connecting", "close", "logged_out"].includes(snap.state) && !snap.me;
     const showOverlay = snap.state !== "open" &&
-      (!snap.me || ["qr", "pairing", "pairing_error", "logged_out"].includes(snap.state));
+      (!snap.me || ["pairing", "pairing_error", "logged_out"].includes(snap.state));
     els.link.hidden = !showOverlay;
-    const pairing = snap.state === "pairing" || snap.state === "pairing_error";
-    els.qrWrap.style.display = pairing ? "none" : "";
-    els.qrNote.style.display = pairing ? "none" : "";
-    els.lead.innerHTML = pairing
+    els.lead.innerHTML = snap.state === "pairing"
       ? "Tap <b>Linked devices → Link a device → Link with phone number</b> on your phone, then type the code below."
-      : "Open WhatsApp on your phone, tap <b>Settings → Linked devices → Link a device</b>, then scan this code.";
-    if (snap.state === "qr" && snap.qr) {
-      if (els.qr.src !== snap.qr) els.qr.src = snap.qr;
-      els.qr.hidden = false;
-      els.qrSkel.style.display = "none";
-    } else {
-      els.qr.hidden = true;
-      els.qrSkel.style.display = "grid";
-    }
+      : "Enter your number with the country code. WhatsApp sends a code you type on the phone — no camera needed.";
     if (snap.state === "pairing" && snap.pairing) {
       els.pairCode.hidden = false;
       els.pairCode.textContent = String(snap.pairing.code || "").replace(/(.{4})/g, "$1 ").trim();
@@ -533,7 +521,7 @@
   });
 
   $("btn-logout").addEventListener("click", async () => {
-    if (!confirm("Unlink this device? You will need to scan the code again.")) return;
+    if (!confirm("Unlink this device? You will need a new pairing code to link again.")) return;
     try { await api("/api/logout", { method: "POST" }); toast("Unlinked"); } catch (e) { toast(e.message); }
   });
 

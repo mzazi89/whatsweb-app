@@ -6,7 +6,7 @@ A self-hosted WhatsApp Web. Link a number the same way the real site does — sc
 
 ## What it does
 
-- **Link a device** with the QR code, or with a phone number and an 8-character pairing code
+- **Link a device** with a phone number and an 8-character pairing code (no camera)
 - **Chat list** with avatars, last message, unread counts, search, and pinned order
 - **Conversations** with text, photos, videos, voice notes, documents and stickers
 - **Delivery ticks**, read receipts, typing indicators, quoted replies

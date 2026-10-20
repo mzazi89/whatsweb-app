@@ -3,7 +3,6 @@
 const fs = require("fs");
 const path = require("path");
 const { EventEmitter } = require("events");
-const QRCode = require("qrcode");
 const pino = require("pino");
 const store = require("./store");
 const db = require("./db");
@@ -164,20 +163,14 @@ class WhatsApp extends EventEmitter {
         // session that the new socket had just created.
         if (this.sock !== sock) return;
         const { connection, lastDisconnect, qr } = u;
+        // Linking is code-only: the ready signal is still used, but no QR is
+        // ever rendered or sent to the browser.
         if (qr) {
           if (this.mode === "pairing") {
             clearTimeout(this.pairTimer);
             askOnce();
-            return;
           }
-          try {
-            const png = await QRCode.toDataURL(qr, { margin: 1, width: 320, color: { dark: "#0b1f1a", light: "#ffffff" } });
-            if (png === this.qr) return; // same QR, no need to redraw the client
-            this.qr = png;
-            this.setState("qr");
-          } catch (e) {
-            this.emit("log", `qr render failed: ${e.message}`);
-          }
+          return;
         }
         if (connection === "connecting") this.setState("connecting");
         if (connection === "open") {

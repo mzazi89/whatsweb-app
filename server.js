@@ -97,10 +97,11 @@ app.get("/api/state", (req, res) => {
 
 app.post("/api/link", async (req, res) => {
   const phone = String(req.body?.phone || "").replace(/\D/g, "");
-  if (ALLOWED && phone && phone !== ALLOWED) return res.status(403).json({ error: "This number is not allowed on this installation" });
-  if (phone && phone.length < 8) return res.status(400).json({ error: "Enter the full number with country code" });
+  if (!phone) return res.status(400).json({ error: "Enter the phone number with country code" });
+  if (ALLOWED && phone !== ALLOWED) return res.status(403).json({ error: "This number is not allowed on this installation" });
+  if (phone.length < 8) return res.status(400).json({ error: "Enter the full number with country code" });
   res.json({ ok: true });
-  wa.start({ phone: phone || undefined }).catch((e) => console.error("link:", e.message));
+  wa.start({ phone }).catch((e) => console.error("link:", e.message));
 });
 
 app.get("/api/diag", (req, res) => res.json({ ...wa.snapshot(), logs: recent }));
