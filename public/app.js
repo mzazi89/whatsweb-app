@@ -35,7 +35,14 @@
 
   // ── helpers ────────────────────────────────────────────────────────────────
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const initial = (name) => (String(name || "?").trim()[0] || "?").toUpperCase();
+  // Names start with emoji and decorative unicode often enough that the first
+  // character rendered as a missing-glyph box; pick a readable letter instead.
+  const initial = (name, group) => {
+    const clean = String(name || "").replace(/[^\p{L}\p{N} ]/gu, "").trim();
+    const m = clean.match(/[A-Za-z0-9\u0600-\u06FF\u0900-\u097F]/);
+    if (m) return m[0].toUpperCase();
+    return group ? "G" : "#";
+  };
   const jidOf = (v) => encodeURIComponent(v);
 
   function linkify(text) {
@@ -120,7 +127,7 @@
         const typing = state.typing.get(c.id);
         const sub = typing && typing.on ? "typing…" : (c.last || "");
         return `<div class="chat-row${state.current === c.id ? " active" : ""}" data-jid="${esc(c.id)}">
-          <div class="avatar" data-avatar="${esc(c.id)}">${initial(c.name)}</div>
+          <div class="avatar" data-avatar="${esc(c.id)}" title="${esc(c.name)}">${initial(c.name, c.kind === "group")}</div>
           <div class="meta">
             <div class="top"><span class="name">${esc(c.name || c.number)}</span><span class="time">${shortTime(c.lastTs)}</span></div>
             <div class="bottom"><span class="last">${esc(sub)}</span>${c.unread ? `<span class="badge">${c.unread}</span>` : ""}</div>
@@ -173,17 +180,25 @@
   }
 
   async function paintAvatars() {
-    for (const el of document.querySelectorAll("[data-avatar]")) {
-      const jid = el.getAttribute("data-avatar");
-      if (el.dataset.done) continue;
-      el.dataset.done = "1";
-      if (state.avatars.has(jid)) {
-        const url = state.avatars.get(jid);
-        if (url) el.innerHTML = `<img src="${url}" alt="">`;
-        continue;
-      }
-      const url = state.avatars.get(jid) || null;
-      if (url) el.innerHTML = `<img src="${url}" alt="">`;
+    const boxes = [...document.querySelectorAll("[data-avatar]")].filter((el) => !el.dataset.done);
+    // four at a time: enough to fill the screen without hammering WhatsApp
+    for (let i = 0; i < boxes.length; i += 4) {
+      await Promise.all(boxes.slice(i, i + 4).map(async (el) => {
+        el.dataset.done = "1";
+        const jid = el.getAttribute("data-avatar");
+        const cached = state.avatars.get(jid);
+        if (cached !== undefined) {
+          if (cached) el.innerHTML = `<img src="${cached}" alt="">`;
+          return;
+        }
+        try {
+          const { url } = await api(`/api/chats/${jidOf(jid)}/avatar`);
+          state.avatars.set(jid, url || null);
+          if (url) el.innerHTML = `<img src="${url}" alt="">`;
+        } catch (e) {
+          state.avatars.set(jid, null);
+        }
+      }));
     }
   }
 
