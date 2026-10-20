@@ -250,6 +250,9 @@
   }
 
   function bubble(m) {
+    if (m.kind === "system") {
+      return `<div class="sys" data-id="${esc(m.id)}"><span>${esc(m.text || "System message")}</span><i>${timeOf(m.ts)}</i></div>`;
+    }
     const cls = m.fromMe ? "out" : "in";
     const showName = !m.fromMe && (state.current || "").endsWith("@g.us");
     const parts = [];
@@ -1212,20 +1215,19 @@
     const before = (state.messages || []).length;
     try {
       const out = await api(`/api/chats/${jidOf(jid)}/older`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ count: 50 }) });
-      if (!out.ok) throw new Error(out.reason || "WhatsApp refused");
-      let grew = false;
-      for (let i = 0; i < 4 && !grew; i++) {
-        await new Promise((r) => setTimeout(r, 1200));
-        const { messages } = await api(`/api/chats/${jidOf(jid)}/messages`);
-        if ((messages || []).length > before) {
-          state.messages = messages;
-          renderThread(true);
-          grew = true;
-        }
+      const { messages } = await api(`/api/chats/${jidOf(jid)}/messages`);
+      if ((messages || []).length > before) {
+        state.messages = messages;
+        renderThread(true);
       }
       els.older.disabled = false;
-      els.older.textContent = grew ? "Load older messages" : "No more messages";
-      if (!grew) { els.older.dataset.done = "1"; els.older.disabled = true; }
+      if (out.ok) {
+        els.older.textContent = "Load older messages";
+      } else {
+        // The phone has to answer this one, so a failure is not "end of chat".
+        els.older.textContent = "Try again";
+        toast(out.reason || "Could not load older messages");
+      }
     } catch (e) {
       els.older.disabled = false;
       els.older.textContent = "Try again";

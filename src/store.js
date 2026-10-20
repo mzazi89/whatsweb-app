@@ -144,15 +144,38 @@ class Store {
         const cur = this.chats.get(c.id) || { id: c.id, unread: 0, messages: 0 };
         this.chats.set(c.id, { ...cur, ...c, updated: cur.updated || Date.now() });
       }
+      // Warm the chats at the top of the list; every other chat is loaded the
+      // first time it is opened (see loadFromDb), so no thread is left blank.
       const ids = chats.slice(0, 15).map((c) => c.id);
-      await Promise.all(ids.map(async (jid) => {
-        const rows = await db.loadMessages(jid, 120);
-        if (rows.length) this.messages.set(jid, rows);
-      }));
+      await Promise.all(ids.map((jid) => this.loadFromDb(jid, 200)));
       return true;
     } catch (e) {
       console.error("[store] hydrate failed:", e.message);
       return false;
+    }
+  }
+
+  // Fills a chat's thread from Postgres when memory has nothing for it, or when
+  // it holds less history than the database does.
+  async loadFromDb(jid, limit = 400) {
+    if (!db.enabled()) return 0;
+    try {
+      const held = this.messages.get(jid) || [];
+      const rows = await db.loadMessages(jid, limit);
+      if (!rows.length) return 0;
+      if (!held.length) {
+        this.messages.set(jid, rows.slice(-MAX_PER_CHAT));
+        return rows.length;
+      }
+      const have = new Set(held.map((m) => m.id));
+      const extra = rows.filter((m) => !have.has(m.id));
+      if (!extra.length) return 0;
+      const merged = [...held, ...extra].sort((a, b) => a.ts - b.ts);
+      this.messages.set(jid, merged.slice(-MAX_PER_CHAT * 4));
+      return extra.length;
+    } catch (e) {
+      console.error("[store] loadFromDb failed:", e.message);
+      return 0;
     }
   }
 

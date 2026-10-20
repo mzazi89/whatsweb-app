@@ -110,8 +110,11 @@ app.get("/api/chats", (req, res) => res.json({ chats: wa.chats() }));
 
 app.get("/api/statuses", (req, res) => res.json({ statuses: wa.statuses || [], calls: wa.calls || [] }));
 
-app.get("/api/chats/:jid/messages", (req, res) => {
+app.get("/api/chats/:jid/messages", async (req, res) => {
   const jid = decodeURIComponent(req.params.jid);
+  // Hydrate on first open: chats outside the warmed top of the list have no
+  // messages in memory yet, and used to come back empty after a restart.
+  await wa.ensureMessages(jid);
   res.json({ chat: wa.chatView(jid), messages: wa.messages(jid) });
 });
 

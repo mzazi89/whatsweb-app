@@ -190,14 +190,21 @@ async function loadContacts() {
   return rows.map((r) => ({ id: r.jid, name: r.name, pushName: r.push_name }));
 }
 
-async function loadMessages(jid, limit = 200) {
+// Media rows only store their kind, so hasMedia is derived. Without this a
+// photo or voice note stored before a restart came back with no body and no
+// media flag, and the thread skipped it as an empty message.
+const MEDIA_KINDS = new Set(["image", "video", "audio", "document", "sticker", "ptv"]);
+
+async function loadMessages(jid, limit = 200, before = 0) {
   const { rows } = await q(
-    `select id, ts, from_me, kind, body, author from wa_messages
-     where account_id=$1 and jid=$2 order by ts desc limit $3`,
-    [ACCOUNT, jid, limit]
+    `select id, ts, from_me, kind, body, author, author_name from wa_messages
+     where account_id=$1 and jid=$2 and ($4::bigint = 0 or ts < $4)
+     order by ts desc limit $3`,
+    [ACCOUNT, jid, limit, Number(before) || 0]
   );
   return rows.reverse().map((r) => ({
-    id: r.id, ts: Number(r.ts), fromMe: r.from_me, kind: r.kind, text: r.body, author: r.author, authorName: r.author_name,
+    id: r.id, ts: Number(r.ts), fromMe: r.from_me, kind: r.kind, text: r.body || "",
+    author: r.author, authorName: r.author_name, hasMedia: MEDIA_KINDS.has(r.kind),
   }));
 }
 

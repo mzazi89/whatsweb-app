@@ -383,23 +383,43 @@ class WhatsApp extends EventEmitter {
     return prettyNumber(jid);
   }
 
-  // Asks WhatsApp for the page of messages older than the oldest one we hold.
+  // Fills a thread from Postgres before it is painted, so opening a chat that
+  // was not in the warmed top 15 never shows an empty list.
+  async ensureMessages(jid) {
+    if (store.messagesFor(jid).length) return 0;
+    return store.loadFromDb(jid, 400);
+  }
+
+  // Asks the phone for the page of messages older than the oldest one we hold.
+  // Baileys forwards the timestamp straight into oldestMsgTimestampMs, so it
+  // must be milliseconds — passing seconds silently returns nothing.
   async loadOlder(jid, count = 50) {
     if (!this.sock) return { ok: false, reason: "Not connected" };
     const list = store.messagesFor(jid);
-    const oldest = list[0];
+    if (!list.length) await this.ensureMessages(jid);
+    const now = store.messagesFor(jid);
+    const oldest = now[0];
     if (!oldest) return { ok: false, reason: "Open the chat first" };
+    const mark = oldest.ts;
     try {
       await this.sock.fetchMessageHistory(
         count,
         { remoteJid: jid, id: oldest.id, fromMe: !!oldest.fromMe },
-        Math.floor((oldest.ts || Date.now()) / 1000)
+        Number(oldest.ts || Date.now())
       );
-      this.emit("log", `older history requested ${jid} before ${oldest.ts}`);
-      return { ok: true };
+      this.emit("log", `older history requested ${jid} before ${mark}`);
     } catch (e) {
       return { ok: false, reason: e.message };
     }
+    // The phone answers asynchronously, if at all. Wait a few seconds so the
+    // UI can tell "nothing older exists" from "the phone did not reply".
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      const list2 = store.messagesFor(jid);
+      const added = list2.filter((m) => m.ts < mark).length;
+      if (added) return { ok: true, added, total: list2.length };
+    }
+    return { ok: false, reason: "The phone did not send older messages. Keep it online and try again." };
   }
 
   // Group names only arrive with metadata, not with the chat rows.
@@ -566,6 +586,85 @@ class WhatsApp extends EventEmitter {
   }
 
   // Turns a raw WAMessage into the small shape the UI needs.
+  // Stub types are the "system" rows WhatsApp itself shows in a thread. They
+  // carry no body, so without this map they were dropped and left a hole.
+  stubName(n) {
+    if (!this._stub) {
+      try { this._stub = require("baileys").proto.WebMessageInfo.StubType || {}; } catch { this._stub = {}; }
+    }
+    return this._stub[n] || "";
+  }
+
+  systemText(name, params, jid) {
+    const p = params || [];
+    const who = (j) => this.nameFor(j) || (j && !isLid(j) ? prettyNumber(j) : "") || "Someone";
+    switch (name) {
+      case "CIPHERTEXT":
+        return "Message could not be decrypted on this device";
+      case "OVERSIZED":
+        return "Message is too large to load here";
+      case "REVOKE":
+        return "This message was deleted";
+      case "GROUP_CREATE":
+        return "Group created";
+      case "GROUP_CHANGE_SUBJECT":
+        return p[0] ? `Group name changed to “${p[0]}”` : "Group name changed";
+      case "GROUP_CHANGE_ICON":
+        return "Group icon changed";
+      case "GROUP_CHANGE_DESCRIPTION":
+        return "Group description changed";
+      case "GROUP_CHANGE_INVITE_LINK":
+        return "Group invite link changed";
+      case "GROUP_CHANGE_RESTRICT":
+        return "Group settings changed";
+      case "GROUP_CHANGE_ANNOUNCE":
+        return "Group messaging settings changed";
+      case "GROUP_PARTICIPANT_ADD":
+        return `${p.map(who).join(", ") || "Someone"} joined`;
+      case "GROUP_PARTICIPANT_ADD_REQUEST_JOIN":
+        return `${p.map(who).join(", ") || "Someone"} requested to join`;
+      case "GROUP_PARTICIPANT_REMOVE":
+        return `${p.map(who).join(", ") || "Someone"} was removed`;
+      case "GROUP_PARTICIPANT_LEAVE":
+        return `${p.map(who).join(", ") || "Someone"} left`;
+      case "GROUP_PARTICIPANT_PROMOTE":
+        return `${p.map(who).join(", ") || "Someone"} is now an admin`;
+      case "GROUP_PARTICIPANT_DEMOTE":
+        return `${p.map(who).join(", ") || "Someone"} is no longer an admin`;
+      case "GROUP_PARTICIPANT_INVITE":
+        return `${p.map(who).join(", ") || "Someone"} was invited`;
+      case "GROUP_PARTICIPANT_CHANGE_NUMBER":
+        return "A member changed their phone number";
+      case "GROUP_DELETE":
+        return "Group deleted";
+      case "CHANGE_EPHEMERAL_SETTING":
+        return p[0] && Number(p[0]) > 0 ? `Disappearing messages set to ${p[0]}s` : "Disappearing messages turned off";
+      case "DISAPPEARING_MODE":
+        return "Disappearing messages changed";
+      case "CALL_MISSED_VOICE":
+      case "CALL_MISSED_GROUP_VOICE":
+        return "Missed voice call";
+      case "CALL_MISSED_VIDEO":
+      case "CALL_MISSED_GROUP_VIDEO":
+        return "Missed video call";
+      case "E2E_ENCRYPTED":
+      case "E2E_ENCRYPTED_NOW":
+        return "Messages are end-to-end encrypted";
+      case "E2E_IDENTITY_CHANGED":
+      case "E2E_DEVICE_CHANGED":
+        return "Security code changed";
+      case "BLOCK_CONTACT":
+        return "Contact blocked";
+      case "CHANGE_LID":
+        return "A contact moved to a new identifier";
+      case "":
+        return "System message";
+      default:
+        return name.replace(/_/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase());
+    }
+  }
+
+  // Turns a raw WAMessage into the small shape the UI needs.
   pack(raw, live) {
     const key = raw.key || {};
     const jid = key.remoteJid;
@@ -574,29 +673,88 @@ class WhatsApp extends EventEmitter {
       return null;
     }
     if (!jid) return null;
-    const m = raw.message || {};
-    const inner =
-      m.ephemeralMessage?.message ||
-      m.viewOnceMessage?.message ||
-      m.viewOnceMessageV2?.message ||
-      m.documentWithCaptionMessage?.message ||
-      m;
-    const text = inner.conversation || inner.extendedTextMessage?.text || "";
+
+    // System rows (group events, deleted messages, undecryptable traffic) have
+    // no body at all. They are real rows in WhatsApp, so keep them.
+    const stub = Number(raw.messageStubType) || 0;
+    const stubLabel = stub ? this.stubName(stub) : "";
+
+    let m = raw.message || {};
+    // Unwrap the containers WhatsApp puts in front of the real content.
+    for (let i = 0; i < 4 && m; i++) {
+      const next =
+        m.ephemeralMessage?.message ||
+        m.viewOnceMessage?.message ||
+        m.viewOnceMessageV2?.message ||
+        m.viewOnceMessageV2Extension?.message ||
+        m.documentWithCaptionMessage?.message ||
+        m.editedMessage?.message ||
+        m.deviceSentMessage?.message;
+      if (!next) break;
+      m = next;
+    }
+    const inner = m || {};
+
+    const text =
+      inner.conversation ||
+      inner.extendedTextMessage?.text ||
+      inner.buttonsResponseMessage?.selectedDisplayText ||
+      inner.listResponseMessage?.title ||
+      inner.templateButtonReplyMessage?.selectedDisplayText ||
+      "";
+
     const media =
       inner.imageMessage || inner.videoMessage || inner.audioMessage ||
       inner.documentMessage || inner.stickerMessage || null;
+
     let kind = "text";
+    let body = text;
     if (inner.imageMessage) kind = "image";
     else if (inner.videoMessage) kind = "video";
+    else if (inner.ptvMessage) kind = "ptv";
     else if (inner.audioMessage) kind = "audio";
     else if (inner.documentMessage) kind = "document";
     else if (inner.stickerMessage) kind = "sticker";
-    else if (!text && inner.protocolMessage) kind = "system";
+    else if (inner.locationMessage || inner.liveLocationMessage) kind = "location";
+    else if (inner.contactMessage || inner.contactsArrayMessage) kind = "contact";
+    else if (inner.pollCreationMessage || inner.pollCreationMessageV2 || inner.pollCreationMessageV3) kind = "poll";
+    else if (inner.eventMessage) kind = "event";
+    else if (inner.productMessage) kind = "product";
+    else if (inner.groupInviteMessage) kind = "invite";
+    else if (inner.albumMessage) kind = "album";
 
-    // Anything without content (keys, receipts, protocol traffic) is not a
-    // message: it used to become a bubble showing nothing but the clock.
-    const meaningful = !!text || !!media || !!inner.buttonsResponseMessage || !!inner.listResponseMessage;
-    if (!meaningful) return null;
+    // Kinds the old packer threw away now get a readable body instead.
+    const derived = {
+      ptv: "Video message",
+      location: inner.locationMessage?.name || inner.locationMessage?.address || "Location",
+      contact: inner.contactMessage?.displayName
+        ? `Contact: ${inner.contactMessage.displayName}`
+        : inner.contactsArrayMessage?.contacts?.length
+          ? `${inner.contactsArrayMessage.contacts.length} contacts`
+          : "Contact card",
+      poll: `Poll: ${inner.pollCreationMessage?.name || inner.pollCreationMessageV2?.name || inner.pollCreationMessageV3?.name || "Vote"}`,
+      event: inner.eventMessage?.name || "Event",
+      product: inner.productMessage?.product?.title || "Product",
+      invite: "Group invite",
+      album: "Album",
+    };
+    if (!body && derived[kind]) body = derived[kind];
+
+    if (inner.protocolMessage) {
+      // 0 = REVOKE, 3 = EPHEMERAL_SETTING. Everything else in here is key
+      // traffic (history sync notices, key shares) and must stay invisible.
+      const ptype = inner.protocolMessage.type;
+      if (ptype === 0) { kind = "system"; body = "This message was deleted"; }
+      else if (ptype === 3) { kind = "system"; body = "Disappearing messages changed"; }
+      else return null;
+    }
+    if (stubLabel && !body) {
+      kind = "system";
+      body = this.systemText(stubLabel, raw.messageStubParameters, jid);
+    }
+
+    // Nothing to show and no system event: keys, receipts, protocol traffic.
+    if (!body && !media) return null;
 
     // remoteJidAlt/participantAlt carry the real phone JID when the primary is a LID
     const altChat = key.remoteJidAlt && !isLid(key.remoteJidAlt) ? key.remoteJidAlt : null;
@@ -608,41 +766,42 @@ class WhatsApp extends EventEmitter {
     this.rememberPushName(jid, raw.pushName);
     if (key.participant) this.rememberPushName(key.participant, raw.pushName);
 
+    const ctx =
+      (inner.extendedTextMessage || inner.imageMessage || inner.videoMessage ||
+        inner.audioMessage || inner.documentMessage || inner.stickerMessage || {}).contextInfo;
+    const me = store.getMe()?.id;
+    let quoted = null;
+    if (ctx?.quotedMessage) {
+      const q = ctx.quotedMessage;
+      const qbody =
+        q.conversation || q.extendedTextMessage?.text || q.imageMessage?.caption ||
+        q.videoMessage?.caption || "";
+      const from = ctx.participant || (key.fromMe ? me : "");
+      const mine = !!me && !!from && from === me;
+      quoted = {
+        from,
+        mine,
+        name: mine ? "You" : this.nameFor(from),
+        text: qbody || (q.imageMessage ? "Photo" : q.videoMessage ? "Video" : q.audioMessage ? "Voice note" : q.stickerMessage ? "Sticker" : "Message"),
+      };
+    }
+
     return {
       id: key.id,
       jid,
       fromMe: !!key.fromMe,
-      from: key.participant || (key.fromMe ? store.getMe()?.id : jid),
+      from: key.participant || (key.fromMe ? me : jid),
       author: key.participant || "",
       authorName: this.nameFor(key.participant, raw.pushName),
       ts: (Number(raw.messageTimestamp) || Math.floor(Date.now() / 1000)) * 1000,
       kind,
-      text: text || media?.caption || "",
+      text: body || media?.caption || "",
       fileName: media?.fileName || "",
       mimetype: media?.mimetype || "",
       seconds: media?.seconds || 0,
       hasMedia: !!media,
-      quoted: (() => {
-        const ctx = (inner.extendedTextMessage || inner.imageMessage || inner.videoMessage || inner.audioMessage || inner.documentMessage || {}).contextInfo;
-        const q = ctx?.quotedMessage;
-        if (!q) return null;
-        const body = q.conversation || q.extendedTextMessage?.text || q.imageMessage?.caption || q.videoMessage?.caption || "";
-        const me = store.getMe()?.id;
-        const from = ctx.participant || (key.fromMe ? me : "");
-        const mine = !!me && (from === me || (ctx.participant && ctx.participant === me));
-        return { from, mine, name: mine ? "You" : this.nameFor(from), text: body || (q.imageMessage ? "Photo" : q.videoMessage ? "Video" : q.audioMessage ? "Voice note" : q.stickerMessage ? "Sticker" : "Message") };
-      })(),
-      mentioned: inner.extendedTextMessage?.contextInfo?.mentionedJid || [],
-      quoted:
-        inner.extendedTextMessage?.contextInfo?.quotedMessage
-          ? {
-              text:
-                inner.extendedTextMessage.contextInfo.quotedMessage.conversation ||
-                inner.extendedTextMessage.contextInfo.quotedMessage.extendedTextMessage?.text ||
-                "Message",
-              from: inner.extendedTextMessage.contextInfo.participant || "",
-            }
-          : null,
+      quoted,
+      mentioned: ctx?.mentionedJid || [],
       status: key.fromMe ? 1 : 0,
     };
   }
@@ -662,7 +821,8 @@ class WhatsApp extends EventEmitter {
     this.emit("message", { chat: this.chatView(packed.jid), message: packed, live });
     // No read receipt here on purpose: a companion that acknowledges on arrival
     // turns every sender's ticks blue before anyone has looked at the chat.
-    if (!packed.fromMe && live) {
+    // Group events and deleted-message notices are not something to "read".
+    if (!packed.fromMe && live && packed.kind !== "system") {
       const chat = store.chat(packed.jid);
       store.upsertChat(packed.jid, { unread: (chat?.unread || 0) + 1 });
     }
