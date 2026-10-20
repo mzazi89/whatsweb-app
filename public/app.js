@@ -867,10 +867,14 @@
     if (state.current === jid) renderChats();
   });
 
-  els.chats.addEventListener("click", (e) => {
+  els.chats.addEventListener("click", async (e) => {
     const row = e.target.closest(".chat-row");
     if (!row) return;
-    openChat(row.getAttribute("data-jid"));
+    const jid = row.getAttribute("data-jid");
+    const onAvatar = !!e.target.closest("[data-avatar]");
+    await openChat(jid);
+    // Tapping the photo in the list goes straight to the group's info page.
+    if (onAvatar && jid && jid.endsWith("@g.us")) openGroupInfo();
   });
 
   els.search.addEventListener("input", () => { state.filter = els.search.value; renderChats(); });
