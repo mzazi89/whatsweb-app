@@ -192,7 +192,11 @@ app.post("/api/chats/:jid/older", async (req, res) => {
 
 app.post("/api/chats/:jid/read", async (req, res) => {
   const jid = decodeURIComponent(req.params.jid);
-  await wa.markRead(jid);
+  // Explicit open only. READ_RECEIPTS=off keeps ticks grey even then.
+  if (String(process.env.READ_RECEIPTS || "on").toLowerCase() !== "off") {
+    await wa.markRead(jid);
+  }
+  store.clearUnread(jid);
   res.json({ ok: true });
 });
 

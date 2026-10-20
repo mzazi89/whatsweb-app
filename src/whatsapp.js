@@ -591,10 +591,11 @@ class WhatsApp extends EventEmitter {
       name: store.chat(packed.jid)?.name || (isGroup(packed.jid) ? "Group" : store.contact(packed.jid)?.name),
     });
     this.emit("message", { chat: this.chatView(packed.jid), message: packed, live });
-    if (!packed.fromMe && live && this.sock) {
-      const k = raw.key || {};
-      this.sock.readMessages([{ remoteJid: k.remoteJid, id: k.id, participant: k.participant }]).catch(() => {});
-      store.clearUnread(packed.jid);
+    // No read receipt here on purpose: a companion that acknowledges on arrival
+    // turns every sender's ticks blue before anyone has looked at the chat.
+    if (!packed.fromMe && live) {
+      const chat = store.chat(packed.jid);
+      store.upsertChat(packed.jid, { unread: (chat?.unread || 0) + 1 });
     }
   }
 
