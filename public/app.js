@@ -585,6 +585,7 @@
     const jid = state.current;
     if (!jid) return;
     if (!jid.endsWith("@g.us")) return openContactInfo(jid);
+    document.querySelectorAll("#ginfo-tabs button").forEach((b) => { b.style.display = ""; });
     els.ginfo.hidden = false;
     els.ginfoName.textContent = state.group?.subject || "Group";
     $("ginfo-title").textContent = state.group?.subject || "Group";
@@ -619,11 +620,11 @@
     $("ginfo-title").textContent = "Contact";
     $("ginfo-sub").textContent = "";
     els.ginfoBody.innerHTML = `<div class="gp-sec">Loading…</div>`;
-    document.querySelectorAll("#ginfo-tabs button").forEach((b) => { b.style.display = b.dataset.gtab === "members" ? "" : "none"; });
+    document.querySelectorAll("#ginfo-tabs button").forEach((b) => { b.style.display = "none"; });
     api(`/api/chats/${jidOf(jid)}/info`).then(({ contact }) => {
       if (!contact) { els.ginfoBody.innerHTML = `<div class="gp-sec">No details for this contact.</div>`; return; }
       $("ginfo-title").textContent = contact.name;
-      $("ginfo-sub").textContent = contact.lid ? "WhatsApp contact" : contact.number;
+      $("ginfo-sub").textContent = contact.number || (contact.lid ? "WhatsApp contact" : "");
       const av = $("ginfo-avatar");
       api(`/api/chats/${jidOf(jid)}/avatar`).then(({ url }) => {
         if (url) { av.style.backgroundImage = `url("${url}")`; av.textContent = ""; }
@@ -633,9 +634,20 @@
         <div class="gp-sec">About</div>
         <div class="gp-row"><div class="t">${esc(contact.about || "No about set")}</div></div>
         <div class="gp-sec">Phone number</div>
-        <div class="gp-row"><div class="t">${esc(contact.number || "Not shared")}</div></div>
+        <div class="gp-row"><div class="t">${esc(contact.number || "Not shared")}${contact.username ? `<div class="s">@${esc(contact.username)}</div>` : ""}</div></div>
+        <div class="gp-sec">Disappearing messages</div>
+        <div class="gp-row"><div class="t">Off<div class="s">Managed on the phone</div></div></div>
+        <div class="gp-sec">Groups in common · ${contact.common.length}</div>
+        ${contact.common.length
+          ? contact.common.map((g) => `<div class="gp-row"><div class="avatar">${initial(g.name, true)}</div><div class="t">${esc(g.name)}</div></div>`).join("")
+          : `<div class="gp-row"><div class="t">None<div class="s">Groups appear here once their details are loaded.</div></div></div>`}
+        <div class="gp-sec">Privacy</div>
+        ${row(contact.blocked ? "Unblock contact" : "Block contact", contact.blocked ? "Allow messages again." : "Stop messages and calls from this person.", "slash", contact.blocked ? "unblock" : "block", true)}
+        ${row("Report contact", "Not available from a linked device.", "flag", "report", true)}
+        ${row("Report and block", "Blocks now; reporting needs the phone.", "flag", "reportblock", true)}
         <div class="gp-sec">Chat</div>
         ${row("Clear chat", "Delete the messages stored on this server.", "slash", "clear", true)}`;
+      state.contact = contact;
     }).catch(() => { els.ginfoBody.innerHTML = `<div class="gp-sec">Could not load this contact.</div>`; });
   }
 
@@ -652,6 +664,20 @@
     if (!r) return;
     const act = r.dataset.gact;
     const jid = state.current;
+    if (state.contact) {
+      if (act === "block" || act === "unblock" || act === "reportblock") {
+        const block = act !== "unblock";
+        if (!confirm(block ? "Block this contact?" : "Unblock this contact?")) return;
+        try {
+          await api(`/api/chats/${jidOf(jid)}/block`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ block }) });
+          toast(block ? "Blocked" : "Unblocked");
+          state.contact.blocked = block;
+          openContactInfo(jid);
+        } catch (e) { toast(e.message); }
+        return;
+      }
+      if (act === "report") return toast("WhatsApp does not accept reports from a linked device.");
+    }
     if (act === "enc") return toast("Messages and calls are end-to-end encrypted by WhatsApp.");
     if (act === "lock" || act === "priv" || act === "report") return toast("Not available in the browser build.");
     if (act === "fav") return toast("Favourites are not stored on the server yet.");

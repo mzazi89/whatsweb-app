@@ -448,17 +448,38 @@ class WhatsApp extends EventEmitter {
   async contactInfo(jid) {
     const c = store.contact(jid) || {};
     let about = "";
+    let blocked = false;
     try {
       const st = await this.sock.fetchStatus(jid);
       about = st?.[0]?.status || "";
     } catch (e) {}
+    try {
+      const list = await this.sock.fetchBlocklist();
+      blocked = (list || []).some((b) => b === jid || jidToNumber(b) === jidToNumber(jid));
+    } catch (e) {}
+    // Groups we are both in, from the metadata we already cache.
+    const common = [];
+    for (const [gid, meta] of this.groupMeta) {
+      if ((meta.participants || []).some((p) => (p.id || p.jid) === jid || (p.lid && p.lid === jid))) {
+        common.push({ jid: gid, name: meta.subject || "Group" });
+      }
+    }
     return {
       jid,
       name: c.name || c.pushName || (isLid(jid) ? "Unknown contact" : prettyNumber(jid)),
       number: c.number ? prettyNumber(c.number) : isLid(jid) ? "" : prettyNumber(jid),
+      username: c.username || "",
       about,
       lid: isLid(jid),
+      blocked,
+      common,
+      disappearing: "off",
     };
+  }
+
+  async setBlock(jid, block) {
+    await this.sock.updateBlockStatus(jid, block ? "block" : "unblock");
+    return true;
   }
 
   async groupInfo(jid) {

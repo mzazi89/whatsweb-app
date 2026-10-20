@@ -145,6 +145,13 @@ app.post("/api/chats/:jid/gif", async (req, res) => {
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
+app.post("/api/chats/:jid/block", async (req, res) => {
+  try {
+    await wa.setBlock(decodeURIComponent(req.params.jid), !!req.body?.block);
+    res.json({ ok: true });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
 app.post("/api/chats/:jid/leave", async (req, res) => {
   try { await wa.leaveGroup(decodeURIComponent(req.params.jid)); res.json({ ok: true }); }
   catch (e) { res.status(400).json({ error: e.message }); }
