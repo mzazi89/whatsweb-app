@@ -718,8 +718,14 @@
 
   // ── screen animation (canvas overlay) ─────────────────────────────────────
   const FX = (() => {
-    const canvas = document.getElementById("fx-canvas");
-    if (!canvas) return { start() {} };
+    // The canvas lives at the end of <body>, which is after this script runs.
+    let canvas = document.getElementById("fx-canvas");
+    if (!canvas) {
+      canvas = document.createElement("canvas");
+      canvas.id = "fx-canvas";
+      canvas.setAttribute("aria-hidden", "true");
+      document.body.appendChild(canvas);
+    }
     const ctx = canvas.getContext("2d");
     const rnd = (a, b) => a + Math.random() * (b - a);
     let type = "off", parts = [], raf = 0, w = 0, h = 0;
