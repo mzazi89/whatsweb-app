@@ -18,6 +18,8 @@
 /* display rules on .link-overlay/.blank/.rail-loading beat the hidden attribute */
 [hidden] { display: none !important; }
 html, body { height: 100%; }
+html { height: 100dvh; }
+body { height: 100dvh; }
 body {
   margin: 0;
   font: 14px/1.45 "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -45,7 +47,7 @@ button { cursor: pointer; }
 }
 
 /* ── left rail ─────────────────────────────────────────────────────────────── */
-.rail {
+.rail {min-height: 0;
   display: flex;
   flex-direction: column;
   background: var(--rail);
@@ -109,7 +111,7 @@ button { cursor: pointer; }
 }
 .search input:focus { border-color: var(--green); }
 
-.chats { flex: 1; overflow-y: auto; }
+.chats { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .chat-row {
   display: flex; gap: 12px; align-items: center;
   padding: 9px 12px;
@@ -132,7 +134,7 @@ button { cursor: pointer; }
 .rail-empty { padding: 22px; text-align: center; color: var(--muted); }
 
 /* ── right pane ────────────────────────────────────────────────────────────── */
-.pane { position: relative; display: flex; flex-direction: column; min-width: 0; }
+.pane { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .blank {
   margin: auto; text-align: center; max-width: 460px; padding: 24px;
 }
@@ -153,7 +155,10 @@ button { cursor: pointer; }
 
 .thread {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 18px 6% 12px;
   background:
     radial-gradient(circle at 15% 15%, rgba(0,168,132,.06), transparent 40%),
@@ -269,15 +274,15 @@ button { cursor: pointer; }
 @media (max-width: 820px) {
   .app { grid-template-columns: 1fr; }
   .pane { display: none; }
-  body.show-chat .pane { display: flex; }
-  body.show-chat .rail { display: none; }
+  body.show-chat .pane { display: flex; height: 100dvh; }
+  body.show-chat .rail {min-height: 0; display: none; }
   .back { display: grid; }
   .thread { padding: 14px 10px 10px; }
   .msg { max-width: 86%; }
   .blank { display: none; }
   /* Phones hide the pane, so the first-sync message has to take the screen. */
   body.is-loading .pane { display: flex; }
-  body.is-loading .rail { display: none; }
+  body.is-loading .rail {min-height: 0; display: none; }
   .loading-screen:not([hidden]) {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 10px; position: fixed; inset: 0; z-index: 30;

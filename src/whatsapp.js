@@ -477,6 +477,8 @@ class WhatsApp extends EventEmitter {
       jid,
       fromMe: !!key.fromMe,
       from: key.participant || (key.fromMe ? store.getMe()?.id : jid),
+      author: key.participant || "",
+      authorName: raw.pushName || "",
       ts: (Number(raw.messageTimestamp) || Math.floor(Date.now() / 1000)) * 1000,
       kind,
       text: text || media?.caption || "",

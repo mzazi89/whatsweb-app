@@ -71,6 +71,7 @@ create table if not exists wa_chats (
   primary key (account_id, jid)
 );
 alter table wa_chats add column if not exists last_text text;
+alter table wa_messages add column if not exists author_name text;
 
 create table if not exists wa_contacts (
   account_id text not null,
@@ -167,10 +168,10 @@ async function saveContact(c) {
 
 async function saveMessage(m) {
   await q(
-    `insert into wa_messages (account_id, jid, id, ts, from_me, kind, body, author)
-     values ($1,$2,$3,$4,$5,$6,$7,$8)
-     on conflict (account_id, id) do nothing`,
-    [ACCOUNT, m.jid, m.id, m.ts || Date.now(), !!m.fromMe, m.kind || "text", m.text || m.body || null, m.author || null]
+    `insert into wa_messages (account_id, jid, id, ts, from_me, kind, body, author, author_name)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+     on conflict (account_id, id) do update set author_name=coalesce(excluded.author_name, wa_messages.author_name)`,
+    [ACCOUNT, m.jid, m.id, m.ts || Date.now(), !!m.fromMe, m.kind || "text", m.text || m.body || null, m.author || null, m.authorName || null]
   );
 }
 
@@ -194,7 +195,7 @@ async function loadMessages(jid, limit = 200) {
     [ACCOUNT, jid, limit]
   );
   return rows.reverse().map((r) => ({
-    id: r.id, ts: Number(r.ts), fromMe: r.from_me, kind: r.kind, text: r.body, author: r.author,
+    id: r.id, ts: Number(r.ts), fromMe: r.from_me, kind: r.kind, text: r.body, author: r.author, authorName: r.author_name,
   }));
 }
 

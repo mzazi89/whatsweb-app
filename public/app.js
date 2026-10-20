@@ -199,8 +199,10 @@
   }
 
   // ── thread ─────────────────────────────────────────────────────────────────
-  function renderThread() {
+  function renderThread(keepPosition) {
     if (!state.current) return;
+    const prevH = els.thread.scrollHeight;
+    const prevTop = els.thread.scrollTop;
     const rows = [];
     let lastDay = "";
     for (const m of state.messages) {
@@ -209,7 +211,7 @@
       rows.push(bubble(m));
     }
     els.thread.innerHTML = rows.join("") || `<div class="day">No messages yet</div>`;
-    els.thread.scrollTop = els.thread.scrollHeight;
+    els.thread.scrollTop = keepPosition ? els.thread.scrollHeight - prevH + prevTop : els.thread.scrollHeight;
     wireMedia();
   }
 
@@ -217,7 +219,10 @@
     const cls = m.fromMe ? "out" : "in";
     const showName = !m.fromMe && (state.current || "").endsWith("@g.us");
     const parts = [];
-    if (showName) parts.push(`<div class="who">${esc((m.from || "").split("@")[0])}</div>`);
+    if (showName) {
+      const who = m.authorName || (m.author ? pretty(m.author) : "") || (m.from ? pretty(m.from) : "");
+      if (who) parts.push(`<div class="who">${esc(who)}</div>`);
+    }
     if (m.quoted && m.quoted.text) parts.push(`<div class="quote">${esc(m.quoted.text).slice(0, 220)}</div>`);
 
     if (m.kind === "image" && m.hasMedia) parts.push(`<img class="media" data-media="${esc(m.id)}" alt="Photo" loading="lazy">`);
@@ -517,7 +522,7 @@
         const { messages } = await api(`/api/chats/${jidOf(jid)}/messages`);
         if ((messages || []).length > before) {
           state.messages = messages;
-          renderThread();
+          renderThread(true);
           grew = true;
         }
       }

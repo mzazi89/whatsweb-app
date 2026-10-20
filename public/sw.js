@@ -1,5 +1,5 @@
 /* Shell cache only. Chats and media always come from the network. */
-const SHELL = "whatsweb-shell-v8";
+const SHELL = "whatsweb-shell-v10";
 const ASSETS = ["/", "/app.js", "/styles.css", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
