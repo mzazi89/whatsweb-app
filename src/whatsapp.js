@@ -641,13 +641,29 @@ class WhatsApp extends EventEmitter {
   }
 
   async logout() {
+    // Unlink on the phone's side first, then forget everything locally. No
+    // reconnect afterwards: the next link has to be an explicit code request.
     try {
       if (this.sock) await this.sock.logout();
     } catch (e) {}
+    try {
+      if (this.sock) this.sock.end(undefined);
+    } catch (e) {}
+    this.sock = null;
+    this.mode = null;
+    this.pairing = null;
+    this.pairingError = null;
+    this.lastPhone = null;
+    this.qr = null;
+    this.statuses = [];
+    this.calls = [];
     this.wipeSession();
     store.reset();
-    this.setState("logged_out");
-    setTimeout(() => this.start().catch(() => {}), 800);
+    this.emit("chats:refresh", []);
+    this.emit("statuses", []);
+    this.emit("calls", []);
+    this.setState("idle");
+    this.emit("log", "logged out, session cleared");
   }
 
   async restart() {

@@ -19,28 +19,34 @@
 
   <aside class="rail" id="rail">
     <header class="rail-top">
-      <div class="me" id="me">
-        <div class="avatar" id="me-avatar">?</div>
-        <div class="me-text">
-          <span class="me-name" id="me-name">Not linked</span>
-          <span class="me-num" id="me-num"></span>
-        </div>
-      </div>
+      <h1 class="brand">MZAZI APP</h1>
       <div class="rail-actions">
-        <button class="icon" id="btn-refresh" title="Reload chats" aria-label="Reload chats">
-          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7Z"/></svg>
+        <button class="icon" id="btn-cam" aria-label="Camera">
+          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M9 4 7.5 6H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-2.5L15 4H9Zm3 4.5A4.5 4.5 0 1 1 7.5 13 4.5 4.5 0 0 1 12 8.5Zm0 2A2.5 2.5 0 1 0 14.5 13 2.5 2.5 0 0 0 12 10.5Z"/></svg>
         </button>
-        <button class="icon" id="btn-logout" title="Unlink this device" aria-label="Unlink">
-          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M16 13v-2H7V8l-5 4 5 4v-3h9Zm3-10H11a2 2 0 0 0-2 2v3h2V5h8v14h-8v-3H9v3a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Z"/></svg>
+        <button class="icon" id="btn-menu" aria-label="Menu">
+          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 7a2 2 0 1 0-2-2 2 2 0 0 0 2 2Zm0 3a2 2 0 1 0 2 2 2 2 0 0 0-2-2Zm0 7a2 2 0 1 0 2 2 2 2 0 0 0-2-2Z"/></svg>
         </button>
       </div>
     </header>
 
-    <h1 class="rail-heading" id="rail-heading">Chats</h1>
+    <div class="menu" id="menu" hidden>
+      <button data-act="link">Linked devices</button>
+      <button data-act="reload">Reload chats</button>
+      <button data-act="settings">Settings</button>
+      <button data-act="logout" class="danger">Log out</button>
+    </div>
+
+    <div class="filters" id="filters">
+      <button class="chip is-on" data-f="all">All</button>
+      <button class="chip" data-f="unread">Unread <span id="cnt-unread"></span></button>
+      <button class="chip" data-f="groups">Groups <span id="cnt-groups"></span></button>
+      <button class="chip plus" id="chip-new" aria-label="New chat">+</button>
+    </div>
 
     <div class="search" id="search-wrap">
       <svg viewBox="0 0 24 24" class="search-icon"><path fill="currentColor" d="M10 4a6 6 0 1 0 3.5 10.9l4.8 4.8 1.4-1.4-4.8-4.8A6 6 0 0 0 10 4Zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"/></svg>
-      <input id="search" type="search" placeholder="Search or start a new chat" autocomplete="off">
+      <input id="search" type="search" placeholder="Search…" autocomplete="off">
     </div>
 
     <div class="chats" id="chats"></div>

@@ -9,6 +9,7 @@
     current: null,
     messages: [],
     filter: "",
+    filterKind: "all",
     tab: "chats",
     calls: [],
     statuses: [],
@@ -20,7 +21,8 @@
 
   const els = {
     meName: $("me-name"), meNum: $("me-num"), meAvatar: $("me-avatar"),
-    railLoading: $("rail-loading"), heading: $("rail-heading"), searchWrap: $("search-wrap"), tabs: $("tabs"), loadingScreen: $("loading-screen"), loadingNote: $("loading-note"),
+    railLoading: $("rail-loading"), searchWrap: $("search-wrap"), tabs: $("tabs"),
+    menu: $("menu"), filters: $("filters"), older: $("older"), olderWrap: $("older-wrap"), cntUnread: $("cnt-unread"), cntGroups: $("cnt-groups"), loadingScreen: $("loading-screen"), loadingNote: $("loading-note"),
     chats: $("chats"), railEmpty: $("rail-empty"), search: $("search"),
     blank: $("blank"), chat: $("chat"), thread: $("thread"),
     chatName: $("chat-name"), chatSub: $("chat-sub"), chatAvatar: $("chat-avatar"),
@@ -87,7 +89,7 @@
 
   function renderChats() {
     const tab = state.tab;
-    els.heading.textContent = tab === "chats" ? "Chats" : tab === "channels" ? "Channels" : tab === "calls" ? "Calls" : "Updates";
+
     els.searchWrap.style.display = tab === "chats" || tab === "channels" ? "" : "none";
     for (const b of els.tabs.querySelectorAll(".tab")) b.classList.toggle("is-on", b.dataset.tab === tab);
 
@@ -99,10 +101,18 @@
     bUp.hidden = !state.statuses.length;
     bUp.textContent = String(state.statuses.length);
 
+    const unreadCount = state.chats.filter((c) => (c.unread || 0) > 0).length;
+    const groupCount = state.chats.filter((c) => c.kind === "group").length;
+    if (els.cntUnread) els.cntUnread.textContent = unreadCount ? String(unreadCount) : "";
+    if (els.cntGroups) els.cntGroups.textContent = groupCount ? String(groupCount) : "";
+    els.filters.style.display = tab === "chats" ? "" : "none";
+
     let rows = [];
     if (tab === "chats" || tab === "channels") {
       const want = tab === "chats" ? (c) => c.kind === "dm" || c.kind === "group" : (c) => c.kind === "channel" || c.kind === "broadcast";
       rows = state.chats.filter(want).filter((c) => {
+        if (tab === "chats" && state.filterKind === "unread" && !(c.unread > 0)) return false;
+        if (tab === "chats" && state.filterKind === "groups" && c.kind !== "group") return false;
         const q = state.filter.toLowerCase();
         return !q || (c.name || "").toLowerCase().includes(q) || (c.number || "").includes(q);
       }).sort((a, b) => (b.lastTs || b.updated || 0) - (a.lastTs || a.updated || 0)).map((c) => {
@@ -395,6 +405,54 @@
     } catch (e) {}
   }, 15000);
 
+  // header menu and filter chips
+  $("btn-menu").addEventListener("click", (e) => {
+    e.stopPropagation();
+    els.menu.hidden = !els.menu.hidden;
+  });
+  document.addEventListener("click", (e) => {
+    if (!els.menu.hidden && !els.menu.contains(e.target) && e.target.id !== "btn-menu") els.menu.hidden = true;
+  });
+  $("btn-cam").addEventListener("click", () => toast("The camera is not available in the browser build."));
+  $("chip-new").addEventListener("click", () => toast("Start a chat from your phone for now."));
+
+  els.filters.addEventListener("click", (e) => {
+    const b = e.target.closest(".chip[data-f]");
+    if (!b) return;
+    state.filterKind = b.dataset.f;
+    for (const c of els.filters.querySelectorAll(".chip[data-f]")) c.classList.toggle("is-on", c === b);
+    renderChats();
+  });
+
+  els.menu.addEventListener("click", async (e) => {
+    const b = e.target.closest("button[data-act]");
+    if (!b) return;
+    els.menu.hidden = true;
+    const act = b.dataset.act;
+    if (act === "reload") return window.location.reload();
+    if (act === "link") {
+      if (state.me) return toast(`Linked as ${state.me.number || state.me.name || "this device"}`);
+      return (els.link.hidden = false);
+    }
+    if (act === "settings") {
+      return toast(state.me ? `MZAZI APP · ${state.me.number || state.me.name || ""}` : "Not linked yet");
+    }
+    if (act === "logout") {
+      if (!confirm("Log out of MZAZI APP and unlink this device?")) return;
+      try { await api("/api/logout", { method: "POST" }); } catch (err) {}
+      state.chats = [];
+      state.messages = [];
+      state.current = null;
+      state.statuses = [];
+      state.calls = [];
+      state.me = null;
+      els.chats.innerHTML = "";
+      els.link.hidden = false;
+      closeChat();
+      toast("Logged out");
+    }
+  });
+
   // ── installable app ───────────────────────────────────────────────────────
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js").catch(() => {});
@@ -543,21 +601,6 @@
     els.attach.value = "";
   });
 
-  $("btn-refresh").addEventListener("click", async () => {
-    try {
-      const { chats } = await api("/api/chats");
-      state.chats = chats || [];
-      renderChats();
-      if (state.current) openChat(state.current);
-      toast("Chats refreshed");
-    } catch (e) { toast(e.message); }
-  });
-
-  $("btn-logout").addEventListener("click", async () => {
-    if (!confirm("Unlink this device? You will need a new pairing code to link again.")) return;
-    try { await api("/api/logout", { method: "POST" }); toast("Unlinked"); } catch (e) { toast(e.message); }
-  });
-
   els.pairForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const phone = els.phone.value.replace(/\D/g, "");
@@ -578,11 +621,6 @@
     try {
       const snap = await api("/api/state");
       renderState(snap);
-      // Only draw a QR when nothing is happening. Calling /api/link on load also
-      // reset a pairing code that was already on screen.
-      if (!snap.me && snap.state === "idle") {
-        api("/api/link", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(() => {});
-      }
     } catch (e) {
       toast(e.message);
     }

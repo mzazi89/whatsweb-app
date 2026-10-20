@@ -349,3 +349,26 @@ button { cursor: pointer; }
   border-radius: 999px; padding: 7px 16px; font: inherit; font-size: 12.5px; cursor: pointer;
 }
 .older:disabled { opacity: .55; cursor: default; }
+
+/* WhatsApp-style header: big brand, camera, kebab, filter chips */
+.brand { margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -.2px; flex: 1; }
+.filters { display: flex; gap: 8px; padding: 2px 12px 10px; overflow-x: auto; scrollbar-width: none; }
+.filters::-webkit-scrollbar { display: none; }
+.chip {
+  flex: 0 0 auto; background: var(--rail-2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 999px; padding: 7px 14px; font: inherit; font-size: 13px; cursor: pointer;
+}
+.chip span { color: var(--muted); margin-left: 2px; }
+.chip.is-on { background: #1f3a34; border-color: #2c5b4f; color: #b6f5df; }
+.chip.plus { width: 42px; padding: 7px 0; text-align: center; font-size: 18px; line-height: 1; }
+.menu {
+  position: absolute; top: 52px; right: 10px; z-index: 40; min-width: 190px;
+  background: #233138; border: 1px solid var(--line); border-radius: 12px;
+  padding: 6px; box-shadow: 0 16px 40px rgba(0,0,0,.5); display: grid;
+}
+.menu button {
+  text-align: left; background: none; border: 0; color: var(--text); font: inherit;
+  padding: 11px 12px; border-radius: 8px; cursor: pointer;
+}
+.menu button:hover { background: #2a3942; }
+.menu button.danger { color: var(--danger); }
