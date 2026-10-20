@@ -83,7 +83,13 @@ app.use("/api", (req, res, next) => {
   next();
 });
 
-app.get("/api/health", (req, res) => res.json({ ok: true, uptime: process.uptime() }));
+app.get("/api/health", async (req, res) => {
+  let dbState = "off";
+  if (db.enabled()) {
+    try { await db.q("select 1"); dbState = "up"; } catch (e) { dbState = "down: " + e.message.slice(0, 80); }
+  }
+  res.json({ ok: true, uptime: process.uptime(), db: dbState });
+});
 app.get("/api/state", (req, res) => {
   const snap = wa.snapshot();
   res.json({ ...snap, me: store.getMe(), chats: wa.chats() });
