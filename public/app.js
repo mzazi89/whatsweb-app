@@ -767,7 +767,7 @@
     }
     const ctx = canvas.getContext("2d");
     const rnd = (a, b) => a + Math.random() * (b - a);
-    let type = "off", parts = [], raf = 0, w = 0, h = 0;
+    let type = "off", parts = [], raf = 0, w = 0, h = 0, words = [];
 
     const TYPES = {
       flowers: { n: 16, color: () => ["#ff8fb1", "#ffc2d1", "#f7e6a5", "#e8b4ff"][Math.floor(Math.random() * 4)] },
@@ -831,6 +831,88 @@
       ctx.restore();
     }
 
+    // ── MZAZI drift: the brand word slides across both axes and bounces off
+    // the screen edges, so it is always travelling side to side and up/down.
+    const WORD = "MZAZI";
+    const WORD_LOOKS = [
+      { scale: 0.27, speed: 1.55, alpha: 0.9, spot: [0.30, 0.26], color: "#3ddc84", glow: "rgba(61,220,132,.6)" },
+      { scale: 0.19, speed: 2.30, alpha: 0.72, spot: [0.66, 0.55], color: "#ff5fa2", glow: "rgba(255,95,162,.55)" },
+      { scale: 0.125, speed: 1.15, alpha: 0.58, spot: [0.38, 0.80], color: "#ffd166", glow: "rgba(255,209,102,.5)" },
+    ];
+    const wordFont = (size) => `900 ${size}px "Arial Black", Impact, system-ui, sans-serif`;
+    // Keep the drifting word inside the list area: over the top bar or the tab
+    // bar it hides the labels underneath, which makes them unreadable.
+    const WORD_TOP = 96, WORD_BOT = 74;
+
+    function buildWords() {
+      words = WORD_LOOKS.map((look, i) => {
+        let size = Math.max(14, Math.min(w, h) * look.scale);
+        ctx.font = wordFont(size);
+        // Shrink until the word fits the viewport, so it can drift instead of
+        // sitting pinned against both edges on a narrow phone screen.
+        const maxW = w * 0.68;
+        let textW = ctx.measureText(WORD).width;
+        if (textW > maxW) {
+          size = Math.max(14, size * (maxW / textW));
+          ctx.font = wordFont(size);
+          textW = ctx.measureText(WORD).width;
+        }
+        const halfW = (textW / 2) * 1.06; // letterSpacing pad
+        const halfH = size * 0.62;
+        const clampX = (x) => Math.min(Math.max(x, halfW + 6), Math.max(halfW + 6, w - halfW - 6));
+        const minY = WORD_TOP + halfH, maxY = Math.max(minY, h - WORD_BOT - halfH);
+        const clampY = (y) => Math.min(Math.max(y, minY), maxY);
+        return {
+          ...look, size, halfW, halfH,
+          // start spread apart so the three words do not pile up on open
+          x: clampX(w * look.spot[0] + rnd(-w * 0.04, w * 0.04)),
+          y: clampY(h * look.spot[1] + rnd(-h * 0.04, h * 0.04)),
+          // every word travels on both axes; alternate directions so they cross
+          vx: (i % 2 ? -1 : 1) * look.speed * rnd(0.85, 1.2),
+          vy: (i % 2 ? 1 : -1) * look.speed * rnd(0.55, 0.95),
+          rot: rnd(-0.3, 0.3),
+          phase: rnd(0, Math.PI * 2),
+        };
+      });
+    }
+
+    function drawWord(it) {
+      const now = performance.now() / 1000;
+      ctx.save();
+      ctx.translate(it.x, it.y);
+      ctx.rotate(it.rot + Math.sin(now * 0.7 + it.phase) * 0.05);
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = wordFont(it.size);
+      if ("letterSpacing" in ctx) ctx.letterSpacing = `${Math.round(it.size * 0.05)}px`;
+      ctx.globalAlpha = it.alpha;
+      ctx.shadowColor = it.glow;
+      ctx.shadowBlur = it.size * 0.3;
+      ctx.fillStyle = it.color;
+      ctx.fillText(WORD, 0, 0);
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = it.alpha * 0.65;
+      ctx.lineWidth = Math.max(1, it.size * 0.03);
+      ctx.strokeStyle = "#ffffff";
+      ctx.strokeText(WORD, 0, 0);
+      ctx.restore();
+      if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+    }
+
+    function stepWord() {
+      ctx.clearRect(0, 0, w, h);
+      for (const it of words) {
+        it.x += it.vx;
+        it.y += it.vy;
+        if (it.x - it.halfW < 4) { it.x = 4 + it.halfW; it.vx = Math.abs(it.vx); }
+        if (it.x + it.halfW > w - 4) { it.x = w - 4 - it.halfW; it.vx = -Math.abs(it.vx); }
+        if (it.y - it.halfH < WORD_TOP) { it.y = WORD_TOP + it.halfH; it.vy = Math.abs(it.vy); }
+        if (it.y + it.halfH > h - WORD_BOT) { it.y = h - WORD_BOT - it.halfH; it.vy = -Math.abs(it.vy); }
+        drawWord(it);
+      }
+      raf = requestAnimationFrame(stepWord);
+    }
+
     function step() {
       ctx.clearRect(0, 0, w, h);
       for (const p of parts) {
@@ -843,12 +925,19 @@
       raf = requestAnimationFrame(step);
     }
 
+    window.addEventListener("resize", () => {
+      if (type !== "mzazi" || !words.length) return;
+      resize(); buildWords(); // keep the word inside the new viewport
+    });
+
     return {
       start(t) {
-        cancelAnimationFrame(raf); raf = 0; parts = [];
+        cancelAnimationFrame(raf); raf = 0; parts = []; words = [];
         type = t;
-        if (!TYPES[t] || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+        if (!TYPES[t] && t !== "mzazi") return;
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
         resize();
+        if (t === "mzazi") { buildWords(); stepWord(); return; }
         for (let i = 0; i < TYPES[t].n; i++) {
           const p = spawn(true);
           p.y = rnd(-h, h); // already spread over the screen on start
