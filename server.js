@@ -145,6 +145,16 @@ app.post("/api/chats/:jid/gif", async (req, res) => {
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
+app.post("/api/chats/:jid/leave", async (req, res) => {
+  try { await wa.leaveGroup(decodeURIComponent(req.params.jid)); res.json({ ok: true }); }
+  catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+app.post("/api/chats/:jid/clear", (req, res) => {
+  wa.clearChat(decodeURIComponent(req.params.jid));
+  res.json({ ok: true });
+});
+
 app.get("/api/chats/:jid/info", async (req, res) => {
   const jid = decodeURIComponent(req.params.jid);
   if (!jid.endsWith("@g.us")) return res.json({ group: null });

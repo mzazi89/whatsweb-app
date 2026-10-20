@@ -431,6 +431,20 @@ class WhatsApp extends EventEmitter {
     }
   }
 
+  async leaveGroup(jid) {
+    await this.sock.groupLeave(jid);
+    store.upsertChat(jid, { unread: 0 });
+    return true;
+  }
+
+  clearChat(jid) {
+    store.messages.set(jid, []);
+    store.upsertChat(jid, { unread: 0, last: "" });
+    if (db.enabled()) db.q("delete from wa_messages where account_id=$1 and jid=$2", [db.ACCOUNT, jid]).catch(() => {});
+    this.emit("chats:refresh", this.chats());
+    return true;
+  }
+
   async groupInfo(jid) {
     await this.ensureGroupName(jid);
     const meta = this.groupMeta.get(jid);

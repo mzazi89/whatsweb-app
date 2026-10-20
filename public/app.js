@@ -516,32 +516,135 @@
     } catch (e) {}
   }
 
+  let gtab = "members";
+
+  function paintGroup(tab) {
+    gtab = tab || gtab;
+    for (const b of document.querySelectorAll("#ginfo-tabs button")) b.classList.toggle("on", b.dataset.gtab === gtab);
+    const g = state.group;
+    const body = els.ginfoBody;
+    if (!g) { body.innerHTML = `<div class="gp-sec">Group details are not available.</div>`; return; }
+
+    if (gtab === "members") {
+      const me = state.me && (state.me.id || state.me.number);
+      const mine = g.people.find((p) => me && (p.jid === me || p.number === pretty(me)));
+      body.innerHTML = `
+        <div class="gp-sec">${g.size} members</div>
+        ${mine ? `<div class="gp-row"><div class="avatar">${initial(mine.name, false)}</div><div class="t">You<div class="s">${esc(mine.number || "")}</div></div></div>` : ""}
+        ${g.people.map((p) => `
+          <div class="gp-row">
+            <div class="avatar">${initial(p.name, false)}</div>
+            <div class="t">${esc(p.name)}<div class="s">${esc(p.number || "")}</div></div>
+            ${p.admin ? `<span class="tag">${p.admin === "owner" ? "Group owner" : "Group admin"}</span>` : ""}
+          </div>`).join("")}`;
+    } else if (gtab === "media") {
+      const media = (state.messages || []).filter((m) => m.hasMedia && ["image", "video", "sticker"].includes(m.kind));
+      body.innerHTML = media.length
+        ? `<div class="gp-sec">Media, links and docs · ${media.length}</div><div class="gp-media">${
+            media.slice(0, 60).map((m) => m.kind === "video"
+              ? `<video src="/api/media/${encodeURIComponent(m.id)}" muted></video>`
+              : `<img src="/api/media/${encodeURIComponent(m.id)}" alt="">`).join("")
+          }</div>`
+        : `<div class="gp-sec">No media in this session yet.</div>`;
+    } else {
+      body.innerHTML = `
+        <div class="gp-sec">Privacy</div>
+        ${row("Encryption", "Messages and calls are end-to-end encrypted.", "lock", "enc")}
+        ${row("Chat lock", "Lock and hide this chat on this device.", "lock", "lock")}
+        ${row("Advanced chat privacy", "Not available in the browser build.", "shield", "priv")}
+        <div class="gp-sec">Chat</div>
+        ${row("Add to favorites", "Pin this group to the top of your list.", "heart", "fav")}
+        ${row("Export chat", "Download this conversation as JSON.", "up", "export")}
+        ${row("Clear chat", "Delete the messages stored on this server.", "slash", "clear", true)}
+        <div class="gp-sec">Group</div>
+        ${row("Exit group", "Leave and stop receiving messages.", "exit", "exit", true)}
+        ${row("Report group", "Report this group to WhatsApp.", "flag", "report", true)}
+        <div class="gp-foot">${g.size} members${g.desc ? " · " + esc(g.desc) : ""}</div>`;
+    }
+  }
+
+  const ICONS = {
+    lock: "M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8h16v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5Zm-3 8V7a3 3 0 0 1 6 0v3H9Z",
+    shield: "M12 2 4 5v7c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V5l-8-3Z",
+    heart: "M12 21s-7-4.4-7-9.3A4.2 4.2 0 0 1 12 8a4.2 4.2 0 0 1 7 3.7C19 16.6 12 21 12 21Z",
+    up: "M12 3 5 10h4v8h6v-8h4l-7-7Z",
+    slash: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2a8 8 0 0 1 6.3 3.1L6.1 16.3A8 8 0 0 1 12 4Z",
+    exit: "M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5v-2H5V5h5V3Zm5 4-1.4 1.4L16.2 11H9v2h7.2l-2.6 2.6L15 17l5-5-5-5Z",
+    flag: "M6 3v18h2v-7h9l-2-4 2-4H8V3H6Z",
+  };
+
+  function row(title, sub, icon, act, danger) {
+    return `<div class="gp-row${danger ? " danger" : ""}" data-gact="${act}">
+      <svg class="i" viewBox="0 0 24 24"><path fill="currentColor" d="${ICONS[icon] || ICONS.lock}"/></svg>
+      <div class="t">${title}<div class="s">${sub}</div></div>
+    </div>`;
+  }
+
   function openGroupInfo() {
     const jid = state.current;
     if (!jid) return;
     if (!jid.endsWith("@g.us")) return toast("Contact info is not available in the browser build.");
     els.ginfo.hidden = false;
     els.ginfoName.textContent = state.group?.subject || "Group";
-    els.ginfoBody.innerHTML = `<div class="sheet-desc">Loading members…</div>`;
+    $("ginfo-title").textContent = state.group?.subject || "Group";
+    $("ginfo-sub").textContent = state.group ? `${state.group.size} members` : "";
+    els.ginfoBody.innerHTML = `<div class="gp-sec">Loading members…</div>`;
     api(`/api/chats/${jidOf(jid)}/info`).then(({ group }) => {
-      if (!group) { els.ginfoBody.innerHTML = `<div class="sheet-desc">Group details are not available.</div>`; return; }
+      if (!group) { els.ginfoBody.innerHTML = `<div class="gp-sec">Group details are not available.</div>`; return; }
       state.group = group;
+      state.people = Object.fromEntries(group.people.filter((p) => p.name).map((p) => [p.jid, p.name]));
       els.ginfoName.textContent = group.subject || "Group";
-      els.ginfoBody.innerHTML = `
-        <div class="sheet-desc">${group.size} members${group.desc ? " · " + esc(group.desc) : ""}</div>
-        ${group.people.map((p) => `
-          <div class="member">
-            <div class="avatar">${initial(p.name, false)}</div>
-            <div class="m-name">${esc(p.name)}<div class="m-sub">${esc(p.number || "")}</div></div>
-            ${p.admin ? `<span class="tag">${p.admin}</span>` : ""}
-          </div>`).join("")}`;
-    }).catch(() => { els.ginfoBody.innerHTML = `<div class="sheet-desc">Could not load members.</div>`; });
+      $("ginfo-title").textContent = group.subject || "Group";
+      $("ginfo-sub").textContent = `${group.size} members`;
+      paintGroup("members");
+      renderThread(true);
+      const av = $("ginfo-avatar");
+      api(`/api/chats/${jidOf(jid)}/avatar`).then(({ url }) => {
+        if (url) { av.style.backgroundImage = `url("${url}")`; av.textContent = ""; }
+        else { av.style.backgroundImage = ""; av.textContent = initial(group.subject, true); }
+      }).catch(() => {});
+    }).catch(() => { els.ginfoBody.innerHTML = `<div class="gp-sec">Could not load members.</div>`; });
   }
 
-  $("ginfo-x").addEventListener("click", () => { els.ginfo.hidden = true; });
-  els.ginfo.addEventListener("click", (e) => { if (e.target === els.ginfo) els.ginfo.hidden = true; });
-  $("chat-avatar").addEventListener("click", openGroupInfo);
-  $("chat-name").addEventListener("click", openGroupInfo);
+  $("ginfo-back").addEventListener("click", () => { els.ginfo.hidden = true; });
+  document.getElementById("ginfo-tabs").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-gtab]");
+    if (b) paintGroup(b.dataset.gtab);
+  });
+  els.ginfoBody.addEventListener("click", async (e) => {
+    const r = e.target.closest("[data-gact]");
+    if (!r) return;
+    const act = r.dataset.gact;
+    const jid = state.current;
+    if (act === "enc") return toast("Messages and calls are end-to-end encrypted by WhatsApp.");
+    if (act === "lock" || act === "priv" || act === "report") return toast("Not available in the browser build.");
+    if (act === "fav") return toast("Favourites are not stored on the server yet.");
+    if (act === "export") {
+      const blob = new Blob([JSON.stringify(state.messages, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `mzazi-chat-${Date.now()}.json`;
+      a.click();
+      return;
+    }
+    if (act === "clear") {
+      if (!confirm("Clear the messages stored on this server for this chat?")) return;
+      await api(`/api/chats/${jidOf(jid)}/clear`, { method: "POST" });
+      state.messages = [];
+      renderThread();
+      toast("Chat cleared");
+      return;
+    }
+    if (act === "exit") {
+      if (!confirm("Leave this group?")) return;
+      try {
+        await api(`/api/chats/${jidOf(jid)}/leave`, { method: "POST" });
+        els.ginfo.hidden = true;
+        closeChat();
+        toast("You left the group");
+      } catch (err) { toast(err.message); }
+    }
+  });
 
   // ── emoji / gif / stickers ────────────────────────────────────────────────
   const EMOJI = {

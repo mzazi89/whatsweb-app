@@ -85,15 +85,23 @@
     </nav>
   </aside>
 
-  <div class="sheet" id="ginfo" hidden>
-    <div class="sheet-card">
-      <div class="sheet-head">
-        <h3 id="ginfo-name">Group</h3>
-        <button class="icon" id="ginfo-x" aria-label="Close">&times;</button>
-      </div>
-      <div class="sheet-body" id="ginfo-body"></div>
-    </div>
-  </div>
+  <section class="gpage" id="ginfo" hidden>
+    <header class="gpage-top">
+      <button class="icon" id="ginfo-back" aria-label="Back">
+        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20v-2Z"/></svg>
+      </button>
+      <h2 id="ginfo-name">Group</h2>
+    </header>
+    <div class="gp-avatar" id="ginfo-avatar">G</div>
+    <div class="gp-name" id="ginfo-title">Group</div>
+    <div class="gp-sub" id="ginfo-sub"></div>
+    <nav class="gp-tabs" id="ginfo-tabs">
+      <button data-gtab="members" class="on">Members</button>
+      <button data-gtab="media">Media</button>
+      <button data-gtab="settings">Settings</button>
+    </nav>
+    <div class="gp-body" id="ginfo-body"></div>
+  </section>
 
   <div class="install" id="install" hidden>
     <img src="/icon-192.png" alt="" width="38" height="38">
