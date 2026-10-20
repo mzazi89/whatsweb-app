@@ -206,6 +206,9 @@
     const rows = [];
     let lastDay = "";
     for (const m of state.messages) {
+      // skip anything that carries no content (old rows stored before the packer
+      // learned to drop protocol traffic)
+      if (!m.text && !m.hasMedia && !m.quoted) continue;
       const day = dayLabel(m.ts);
       if (day !== lastDay) { rows.push(`<div class="day">${esc(day)}</div>`); lastDay = day; }
       rows.push(bubble(m));
@@ -223,7 +226,10 @@
       const who = m.authorName || (m.author ? pretty(m.author) : "") || (m.from ? pretty(m.from) : "");
       if (who) parts.push(`<div class="who">${esc(who)}</div>`);
     }
-    if (m.quoted && m.quoted.text) parts.push(`<div class="quote">${esc(m.quoted.text).slice(0, 220)}</div>`);
+    if (m.quoted && m.quoted.text) {
+      const qname = m.quoted.name || (m.quoted.from ? pretty(m.quoted.from) : "");
+      parts.push(`<div class="quote">${qname ? `<b>${esc(qname)}</b>` : ""}<span>${esc(m.quoted.text).slice(0, 220)}</span></div>`);
+    }
 
     if (m.kind === "image" && m.hasMedia) parts.push(`<img class="media" data-media="${esc(m.id)}" alt="Photo" loading="lazy">`);
     else if (m.kind === "video" && m.hasMedia) parts.push(`<video class="media" data-media="${esc(m.id)}" controls preload="none"></video>`);
@@ -262,6 +268,7 @@
     document.body.classList.add("show-chat");
     els.olderWrap.hidden = false;
     els.older.disabled = false;
+    delete els.older.dataset.done;
     els.older.textContent = "Load older messages";
     renderChats();
 
@@ -508,7 +515,7 @@
   });
 
   els.older.addEventListener("click", async () => {
-    if (!state.current || els.older.disabled) return;
+    if (!state.current || els.older.disabled || els.older.dataset.done) return;
     els.older.disabled = true;
     els.older.textContent = "Loading…";
     const jid = state.current;
@@ -528,7 +535,7 @@
       }
       els.older.disabled = false;
       els.older.textContent = grew ? "Load older messages" : "No more messages";
-      if (!grew) els.older.dataset.done = "1";
+      if (!grew) { els.older.dataset.done = "1"; els.older.disabled = true; }
     } catch (e) {
       els.older.disabled = false;
       els.older.textContent = "Try again";

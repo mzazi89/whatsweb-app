@@ -468,6 +468,11 @@ class WhatsApp extends EventEmitter {
     else if (inner.stickerMessage) kind = "sticker";
     else if (!text && inner.protocolMessage) kind = "system";
 
+    // Anything without content (keys, receipts, protocol traffic) is not a
+    // message: it used to become a bubble showing nothing but the clock.
+    const meaningful = !!text || !!media || !!inner.buttonsResponseMessage || !!inner.listResponseMessage;
+    if (!meaningful) return null;
+
     // A DM carries the sender's published name; a group carries the member's.
     this.rememberPushName(jid, raw.pushName);
     if (key.participant) this.rememberPushName(key.participant, raw.pushName);
@@ -478,7 +483,7 @@ class WhatsApp extends EventEmitter {
       fromMe: !!key.fromMe,
       from: key.participant || (key.fromMe ? store.getMe()?.id : jid),
       author: key.participant || "",
-      authorName: raw.pushName || "",
+      authorName: raw.pushName || store.contact(key.participant)?.name || "",
       ts: (Number(raw.messageTimestamp) || Math.floor(Date.now() / 1000)) * 1000,
       kind,
       text: text || media?.caption || "",
@@ -486,6 +491,14 @@ class WhatsApp extends EventEmitter {
       mimetype: media?.mimetype || "",
       seconds: media?.seconds || 0,
       hasMedia: !!media,
+      quoted: (() => {
+        const ctx = (inner.extendedTextMessage || inner.imageMessage || inner.videoMessage || inner.audioMessage || inner.documentMessage || {}).contextInfo;
+        const q = ctx?.quotedMessage;
+        if (!q) return null;
+        const body = q.conversation || q.extendedTextMessage?.text || q.imageMessage?.caption || q.videoMessage?.caption || "";
+        const from = ctx.participant || "";
+        return { from, name: store.contact(from)?.name || "", text: body || (q.imageMessage ? "Photo" : q.videoMessage ? "Video" : q.audioMessage ? "Voice note" : q.stickerMessage ? "Sticker" : "Message") };
+      })(),
       mentioned: inner.extendedTextMessage?.contextInfo?.mentionedJid || [],
       quoted:
         inner.extendedTextMessage?.contextInfo?.quotedMessage
