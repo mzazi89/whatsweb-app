@@ -21,6 +21,8 @@ function loadBaileys() {
     DisconnectReason: b.DisconnectReason,
     Browsers: b.Browsers,
     jidNormalizedUser: b.jidNormalizedUser,
+    initAuthCreds: b.initAuthCreds,
+    BufferJSON: b.BufferJSON,
     downloadMediaMessage: b.downloadMediaMessage,
   };
 }
@@ -141,11 +143,13 @@ class WhatsApp extends EventEmitter {
         if (asked || this.sock !== sock || this.state === "open") return;
         asked = true;
         try {
+          this.emit("log", `requesting pairing code for ${this.lastPhone}`);
           const code = await sock.requestPairingCode(this.lastPhone);
           if (!code) throw new Error("WhatsApp did not return a code");
           this.pairing = { code, phone: this.lastPhone };
           this.pairingError = null;
           this.setState("pairing");
+          this.emit("log", `pairing code issued ${code}`);
           this.emit("pairing", this.pairing);
         } catch (e) {
           this.pairingError = e.message || "Pairing failed";

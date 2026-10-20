@@ -2,8 +2,12 @@
 // not unlink the phone. Shape matches useMultiFileAuthState.
 const db = require("./db");
 
-async function usePostgresAuthState(baileys) {
-  const { initAuthCreds, BufferJSON: B } = baileys;
+async function usePostgresAuthState(mod) {
+  // baileys ships both CJS and ESM; the named exports may sit on mod or mod.default
+  const b = mod && mod.default ? mod.default : mod;
+  const initAuthCreds = (mod && mod.initAuthCreds) || b.initAuthCreds;
+  const B = (mod && mod.BufferJSON) || b.BufferJSON;
+  if (typeof initAuthCreds !== "function") throw new Error("baileys initAuthCreds missing");
   const read = async (name) => {
     const raw = await db.getAuth(name);
     if (!raw) return null;
