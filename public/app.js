@@ -223,7 +223,10 @@
     const showName = !m.fromMe && (state.current || "").endsWith("@g.us");
     const parts = [];
     if (showName) {
-      const who = m.authorName || (m.author ? pretty(m.author) : "") || (m.from ? pretty(m.from) : "");
+      const who = m.authorName ||
+        (m.author && !m.author.endsWith("@lid") ? pretty(m.author) : "") ||
+        (m.from && !m.from.endsWith("@lid") ? pretty(m.from) : "") ||
+        "Member";
       if (who) parts.push(`<div class="who">${esc(who)}</div>`);
     }
     if (m.quoted && m.quoted.text) {

@@ -40,8 +40,9 @@ const kindOf = (jid) => {
 
 // +254 712 345 678 for Kenyan-style numbers, otherwise grouped digits.
 const prettyNumber = (jid) => {
+  if (String(jid || "").endsWith("@lid")) return "";
   const n = String(jid || "").split("@")[0].split(":")[0].replace(/\D/g, "");
-  if (!n) return "";
+  if (!n || n.length > 14) return "";
   if (!/^\d+$/.test(n)) return "";
   if (n.length === 12) return `+${n.slice(0, 3)} ${n.slice(3, 6)} ${n.slice(6, 9)} ${n.slice(9)}`;
   if (n.length === 11) return `+${n.slice(0, 1)} ${n.slice(1, 4)} ${n.slice(4, 7)} ${n.slice(7)}`;
@@ -363,6 +364,18 @@ class WhatsApp extends EventEmitter {
     } catch (e) {}
   }
 
+  nameFor(jid, pushName) {
+    if (!jid) return "";
+    const c = store.contact(jid);
+    const name = pushName || c?.name || c?.pushName;
+    if (name) return name;
+    if (String(jid).endsWith("@lid")) {
+      this.resolveLid(jid);
+      return "Member";
+    }
+    return prettyNumber(jid);
+  }
+
   // Asks WhatsApp for the page of messages older than the oldest one we hold.
   async loadOlder(jid, count = 50) {
     if (!this.sock) return { ok: false, reason: "Not connected" };
@@ -483,7 +496,7 @@ class WhatsApp extends EventEmitter {
       fromMe: !!key.fromMe,
       from: key.participant || (key.fromMe ? store.getMe()?.id : jid),
       author: key.participant || "",
-      authorName: raw.pushName || store.contact(key.participant)?.name || "",
+      authorName: this.nameFor(key.participant, raw.pushName),
       ts: (Number(raw.messageTimestamp) || Math.floor(Date.now() / 1000)) * 1000,
       kind,
       text: text || media?.caption || "",
@@ -497,7 +510,7 @@ class WhatsApp extends EventEmitter {
         if (!q) return null;
         const body = q.conversation || q.extendedTextMessage?.text || q.imageMessage?.caption || q.videoMessage?.caption || "";
         const from = ctx.participant || "";
-        return { from, name: store.contact(from)?.name || "", text: body || (q.imageMessage ? "Photo" : q.videoMessage ? "Video" : q.audioMessage ? "Voice note" : q.stickerMessage ? "Sticker" : "Message") };
+        return { from, name: this.nameFor(from), text: body || (q.imageMessage ? "Photo" : q.videoMessage ? "Video" : q.audioMessage ? "Voice note" : q.stickerMessage ? "Sticker" : "Message") };
       })(),
       mentioned: inner.extendedTextMessage?.contextInfo?.mentionedJid || [],
       quoted:
