@@ -623,8 +623,8 @@
     document.querySelectorAll("#ginfo-tabs button").forEach((b) => { b.style.display = "none"; });
     api(`/api/chats/${jidOf(jid)}/info`).then(({ contact }) => {
       if (!contact) { els.ginfoBody.innerHTML = `<div class="gp-sec">No details for this contact.</div>`; return; }
-      $("ginfo-title").textContent = contact.name;
-      $("ginfo-sub").textContent = contact.number || (contact.lid ? "WhatsApp contact" : "");
+      $("ginfo-title").textContent = contact.name === "Unknown contact" && contact.number ? contact.number : contact.name;
+      $("ginfo-sub").textContent = contact.number || (contact.lid ? "Number not shared" : "");
       const av = $("ginfo-avatar");
       api(`/api/chats/${jidOf(jid)}/avatar`).then(({ url }) => {
         if (url) { av.style.backgroundImage = `url("${url}")`; av.textContent = ""; }

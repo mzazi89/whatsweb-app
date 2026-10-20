@@ -374,8 +374,11 @@ class WhatsApp extends EventEmitter {
     if (String(jid).endsWith("@lid")) {
       this.resolveLid(jid);
       const mapped = store.contact(jid)?.number;
-      const viaPn = mapped ? store.contact(`${mapped}@s.whatsapp.net`)?.name : "";
-      return viaPn || "";
+      if (mapped) {
+        const viaPn = store.contact(`${mapped}@s.whatsapp.net`)?.name;
+        return viaPn || prettyNumber(`${mapped}@s.whatsapp.net`);
+      }
+      return "";
     }
     return prettyNumber(jid);
   }
@@ -493,7 +496,7 @@ class WhatsApp extends EventEmitter {
       return {
         jid: id,
         name: c.name || p.name || p.notify || (isLid(id) ? "Member" : prettyNumber(id)),
-        number: c.number ? prettyNumber(c.number) : isLid(id) ? "" : prettyNumber(id),
+        number: c.number ? prettyNumber(c.number) : p.phoneNumber ? prettyNumber(p.phoneNumber) : isLid(id) ? "" : prettyNumber(id),
         admin,
       };
     }).sort((a, b) => (b.admin ? 1 : 0) - (a.admin ? 1 : 0) || a.name.localeCompare(b.name));
@@ -571,6 +574,12 @@ class WhatsApp extends EventEmitter {
     // message: it used to become a bubble showing nothing but the clock.
     const meaningful = !!text || !!media || !!inner.buttonsResponseMessage || !!inner.listResponseMessage;
     if (!meaningful) return null;
+
+    // remoteJidAlt/participantAlt carry the real phone JID when the primary is a LID
+    const altChat = key.remoteJidAlt && !isLid(key.remoteJidAlt) ? key.remoteJidAlt : null;
+    const altPart = key.participantAlt && !isLid(key.participantAlt) ? key.participantAlt : null;
+    if (altChat) store.upsertContact(jid, { number: jidToNumber(altChat) });
+    if (altPart && key.participant) store.upsertContact(key.participant, { number: jidToNumber(altPart) });
 
     // A DM carries the sender's published name; a group carries the member's.
     this.rememberPushName(jid, raw.pushName);
@@ -651,6 +660,7 @@ class WhatsApp extends EventEmitter {
       name,
       number: group ? "" : contact?.number ? prettyNumber(contact.number) : isLid(jid) ? "" : prettyNumber(jid),
       kind: kindOf(jid),
+      pn: isLid(jid) ? store.contact(jid)?.number || "" : "",
       group: isGroup(jid),
       unread: chat.unread || 0,
       last: chat.last || "",
