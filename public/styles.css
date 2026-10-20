@@ -497,3 +497,42 @@ button { cursor: pointer; }
 .gp-media { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
 .gp-media img, .gp-media video { width: 100%; height: 90px; object-fit: cover; border-radius: 6px; }
 .gp-foot { color: var(--muted); font-size: 12px; padding: 18px 0; }
+
+.set-profile { display: flex; align-items: center; gap: 16px; padding: 10px 0 14px; }
+.set-input {
+  width: 100%; background: var(--rail-2); border: 1px solid var(--line); color: var(--text);
+  border-radius: 10px; padding: 12px 14px; font: inherit;
+}
+.chip-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+
+/* themes */
+body[data-theme="amoled"] { --bg:#000; --rail:#070b0d; --rail-2:#111a1f; --line:#1b262c; --bubble:#101a1f; }
+body[data-theme="midnight"] { --bg:#0d1424; --rail:#111a30; --rail-2:#1b2743; --line:#243352; --bubble:#1a2438; --green:#4f8cff; }
+body[data-theme="light"] {
+  --bg:#efeae2; --rail:#ffffff; --rail-2:#f0f2f5; --line:#d9dde1; --text:#111b21; --muted:#5b6b74;
+  --bubble:#ffffff; --green:#008069;
+}
+body[data-theme="light"] .chat-row:hover { background:#f5f6f6; }
+body[data-theme="light"] .tab, body[data-theme="light"] .brand { color:#111b21; }
+body[data-theme="light"] .chat, body[data-theme="light"] .thread { background:#efeae2; }
+
+/* wallpapers */
+body[data-wall="doodle"] .thread {
+  background-image: radial-gradient(rgba(255,255,255,.045) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+body[data-wall="grid"] .thread {
+  background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+#settings .btn, #set-save-name {
+  background: var(--green); color: #04120d; border: 0; border-radius: 10px;
+  padding: 11px 16px; font: inherit; font-weight: 700; width: 100%; cursor: pointer;
+}
+#settings .btn.small, #settings label.btn {
+  width: auto; padding: 8px 14px; font-size: 13px; background: var(--rail-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 999px; font-weight: 600;
+}
+#settings .set-profile { justify-content: space-between; padding-right: 6px; }

@@ -26,7 +26,7 @@
     chats: $("chats"), railEmpty: $("rail-empty"), search: $("search"),
     blank: $("blank"), chat: $("chat"), thread: $("thread"),
     tray: $("tray"), trayBody: $("tray-body"), btnEmoji: $("btn-emoji"),
-    ginfo: $("ginfo"), ginfoBody: $("ginfo-body"), ginfoName: $("ginfo-name"),
+    settings: $("settings"), ginfo: $("ginfo"), ginfoBody: $("ginfo-body"), ginfoName: $("ginfo-name"),
     chatName: $("chat-name"), chatSub: $("chat-sub"), chatAvatar: $("chat-avatar"),
     text: $("text"), send: $("btn-send"), attach: $("attach"), file: $("attach"),
     link: $("link"), lead: $("link-lead"), pairForm: $("pair-form"),
@@ -485,9 +485,7 @@
       if (state.me) return toast(`Linked as ${state.me.number || state.me.name || "this device"}`);
       return (els.link.hidden = false);
     }
-    if (act === "settings") {
-      return toast(state.me ? `MZAZI APP · ${state.me.number || state.me.name || ""}` : "Not linked yet");
-    }
+    if (act === "settings") return openSettings();
     if (act === "logout") {
       if (!confirm("Log out of MZAZI APP and unlink this device?")) return;
       try { await api("/api/logout", { method: "POST" }); } catch (err) {}
@@ -717,6 +715,97 @@
       } catch (err) { toast(err.message); }
     }
   });
+
+  // ── settings: profile, theme, wallpaper ───────────────────────────────────
+  const prefs = {
+    get theme() { return localStorage.getItem("ww-theme") || "dark"; },
+    set theme(v) { localStorage.setItem("ww-theme", v); },
+    get wall() { return localStorage.getItem("ww-wall") || "none"; },
+    set wall(v) { localStorage.setItem("ww-wall", v); },
+    get wallImage() { return localStorage.getItem("ww-wall-image") || ""; },
+    set wallImage(v) { localStorage.setItem("ww-wall-image", v); },
+  };
+
+  function applyPrefs() {
+    document.body.dataset.theme = prefs.theme;
+    document.body.dataset.wall = prefs.wall;
+    const img = prefs.wallImage;
+    els.thread.style.backgroundImage = prefs.wall === "custom" && img ? `url("${img}")` : "";
+    for (const b of document.querySelectorAll("#themes .chip")) b.classList.toggle("is-on", b.dataset.theme === prefs.theme);
+    for (const b of document.querySelectorAll("#walls .chip[data-wall]")) b.classList.toggle("is-on", b.dataset.wall === prefs.wall);
+  }
+
+  function openSettings() {
+    els.settings.hidden = false;
+    $("set-name").value = state.me?.name || "";
+    $("set-number").textContent = state.me?.number ? "Linked as " + state.me.number : "Not linked yet";
+    const av = $("set-avatar");
+    av.style.backgroundImage = els.brandDp.style.backgroundImage;
+    av.textContent = av.style.backgroundImage ? "" : (state.me ? initial(state.me.name || "M") : "M");
+    applyPrefs();
+  }
+
+  $("set-back").addEventListener("click", () => { els.settings.hidden = true; });
+
+  document.getElementById("themes").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-theme]");
+    if (!b) return;
+    prefs.theme = b.dataset.theme;
+    applyPrefs();
+  });
+
+  document.getElementById("walls").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-wall]");
+    if (!b) return;
+    prefs.wall = b.dataset.wall;
+    if (b.dataset.wall !== "custom") prefs.wallImage = "";
+    applyPrefs();
+  });
+
+  $("set-wall").addEventListener("change", (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => { prefs.wallImage = String(r.result); prefs.wall = "custom"; applyPrefs(); };
+    r.readAsDataURL(f);
+  });
+
+  $("set-photo").addEventListener("change", async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const fd = new FormData();
+    fd.append("photo", f);
+    try {
+      const r = await fetch("/api/me/photo", { method: "POST", body: fd });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Upload failed");
+      toast("Profile photo updated");
+      state.dpLoaded = false;
+      const { url } = await api("/api/me/avatar");
+      if (url) {
+        els.brandDp.style.backgroundImage = `url("${url}")`;
+        els.brandDp.textContent = "";
+        $("set-avatar").style.backgroundImage = `url("${url}")`;
+        $("set-avatar").textContent = "";
+      }
+    } catch (err) { toast(err.message); }
+  });
+
+  $("set-save-name").addEventListener("click", async () => {
+    try {
+      const { name } = await api("/api/me/name", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: $("set-name").value }) });
+      toast("Name saved as " + name);
+      if (state.me) state.me.name = name;
+    } catch (e) { toast(e.message); }
+  });
+
+  $("set-logout").addEventListener("click", async () => {
+    if (!confirm("Log out of MZAZI APP and unlink this device?")) return;
+    try { await api("/api/logout", { method: "POST" }); } catch (e) {}
+    location.reload();
+  });
+
+  applyPrefs();
 
   // ── emoji / gif / stickers ────────────────────────────────────────────────
   const EMOJI = {

@@ -480,6 +480,23 @@ class WhatsApp extends EventEmitter {
     };
   }
 
+  async setProfilePhoto(buffer) {
+    const me = store.getMe()?.id;
+    if (!me) throw new Error("Not linked");
+    await this.sock.updateProfilePicture(me.includes("@") ? me : `${me}@s.whatsapp.net`, { url: buffer });
+    return true;
+  }
+
+  async setProfileName(name) {
+    const clean = String(name || "").trim().slice(0, 25);
+    if (!clean) throw new Error("Name cannot be empty");
+    await this.sock.updateProfileName(clean);
+    const me = store.getMe() || {};
+    store.setMe({ ...me, name: clean });
+    this.emit("state", this.snapshot());
+    return clean;
+  }
+
   async setBlock(jid, block) {
     await this.sock.updateBlockStatus(jid, block ? "block" : "unblock");
     return true;

@@ -103,6 +103,46 @@
     <div class="gp-body" id="ginfo-body"></div>
   </section>
 
+  <section class="gpage" id="settings" hidden>
+    <header class="gpage-top">
+      <button class="icon" id="set-back" aria-label="Back">
+        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20v-2Z"/></svg>
+      </button>
+      <h2>Settings</h2>
+    </header>
+    <div class="gp-body">
+      <div class="gp-sec">Profile</div>
+      <div class="set-profile">
+        <div class="gp-avatar" id="set-avatar">M</div>
+        <label class="btn small" for="set-photo">Change photo</label>
+        <input type="file" id="set-photo" accept="image/*" hidden>
+      </div>
+      <div class="gp-row"><input class="set-input" id="set-name" placeholder="Your name" maxlength="25"></div>
+      <button class="btn" id="set-save-name">Save name</button>
+
+      <div class="gp-sec">Chat theme</div>
+      <div class="chip-row" id="themes">
+        <button class="chip" data-theme="dark">Dark</button>
+        <button class="chip" data-theme="amoled">AMOLED</button>
+        <button class="chip" data-theme="midnight">Midnight</button>
+        <button class="chip" data-theme="light">Light</button>
+      </div>
+
+      <div class="gp-sec">Wallpaper</div>
+      <div class="chip-row" id="walls">
+        <button class="chip" data-wall="none">Plain</button>
+        <button class="chip" data-wall="doodle">Doodle</button>
+        <button class="chip" data-wall="grid">Grid</button>
+        <label class="chip" for="set-wall">Custom</label>
+        <input type="file" id="set-wall" accept="image/*" hidden>
+      </div>
+
+      <div class="gp-sec">Linked device</div>
+      <div class="gp-row"><div class="t" id="set-number">Not linked</div></div>
+      <div class="gp-row danger" id="set-logout"><div class="t">Log out</div></div>
+    </div>
+  </section>
+
   <div class="install" id="install" hidden>
     <img src="/icon-192.png" alt="" width="38" height="38">
     <div class="install-text">

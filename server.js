@@ -145,6 +145,21 @@ app.post("/api/chats/:jid/gif", async (req, res) => {
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
+app.post("/api/me/photo", upload.single("photo"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No image" });
+    const buf = fs.readFileSync(req.file.path);
+    await wa.setProfilePhoto(buf);
+    fs.unlink(req.file.path, () => {});
+    res.json({ ok: true });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+app.post("/api/me/name", async (req, res) => {
+  try { res.json({ ok: true, name: await wa.setProfileName(req.body?.name) }); }
+  catch (e) { res.status(400).json({ error: e.message }); }
+});
+
 app.post("/api/chats/:jid/block", async (req, res) => {
   try {
     await wa.setBlock(decodeURIComponent(req.params.jid), !!req.body?.block);
