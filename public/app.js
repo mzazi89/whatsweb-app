@@ -239,7 +239,7 @@
     for (const m of state.messages) {
       // skip anything that carries no content (old rows stored before the packer
       // learned to drop protocol traffic)
-      if (!m.text && !m.hasMedia && !m.quoted) continue;
+      if (!m.text && !m.hasMedia && !m.quoted && m.kind !== "system") continue;
       const day = dayLabel(m.ts);
       if (day !== lastDay) { rows.push(`<div class="day">${esc(day)}</div>`); lastDay = day; }
       rows.push(bubble(m));
@@ -290,6 +290,13 @@
       if (el.dataset.wired) continue;
       el.dataset.wired = "1";
       const src = `/api/media/${encodeURIComponent(el.getAttribute("data-media"))}`;
+      el.addEventListener("error", () => {
+        // Media is fetchable from the phone only, so an old file can be gone.
+        const note = document.createElement("div");
+        note.className = "media-gone";
+        note.textContent = el.tagName === "VIDEO" ? "Video unavailable" : el.tagName === "AUDIO" ? "Voice note unavailable" : "Media unavailable";
+        el.replaceWith(note);
+      }, { once: true });
       el.setAttribute("src", src);
     }
   }
