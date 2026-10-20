@@ -283,7 +283,8 @@
     const chat = state.chats.find((c) => c.id === jid) || { id: jid, name: jid, unread: 0 };
     els.chatName.textContent = chat.name || chat.number || jid;
     els.chatSub.textContent = chat.group ? "Group" : (chat.number || "");
-    els.chatAvatar.textContent = initial(chat.name || chat.number);
+    els.chatAvatar.textContent = initial(chat.name || chat.number, chat.group);
+    els.chatAvatar.style.backgroundImage = "";
     els.chat.hidden = false;
     els.blank.hidden = true;
     document.body.classList.add("show-chat");
@@ -605,6 +606,12 @@
       }).catch(() => {});
     }).catch(() => { els.ginfoBody.innerHTML = `<div class="gp-sec">Could not load members.</div>`; });
   }
+
+  // Whole header opens the group page: photo, name and the empty space between.
+  document.querySelector(".chat-top").addEventListener("click", (e) => {
+    if (e.target.closest("#btn-back")) return;
+    openGroupInfo();
+  });
 
   $("ginfo-back").addEventListener("click", () => { els.ginfo.hidden = true; });
   document.getElementById("ginfo-tabs").addEventListener("click", (e) => {
