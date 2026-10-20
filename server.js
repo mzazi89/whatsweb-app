@@ -121,6 +121,12 @@ app.get("/api/chats/:jid/avatar", async (req, res) => {
   res.json({ url });
 });
 
+app.post("/api/chats/:jid/older", async (req, res) => {
+  const count = Math.min(Math.max(Number(req.body?.count) || 50, 10), 100);
+  const out = await wa.loadOlder(decodeURIComponent(req.params.jid), count);
+  res.status(out.ok ? 200 : 400).json(out);
+});
+
 app.post("/api/chats/:jid/read", async (req, res) => {
   const jid = decodeURIComponent(req.params.jid);
   await wa.markRead(jid);
@@ -223,7 +229,7 @@ if (!ON_SERVERLESS) {
       }
     }
   })().then(() => server.listen(PORT, async () => {
-    console.log(`WhatsWeb on http://localhost:${PORT}`);
+    console.log(`MZAZI APP on http://localhost:${PORT}`);
     if (!PASSWORD) console.log("! ACCESS_PASSWORD is empty: anyone who can reach this port can read the chats.");
     // Only reconnect on boot when a *registered* session exists. Merely having a
     // database used to start an idle socket that fought with the first link.

@@ -1,4 +1,4 @@
-# WhatsWeb
+# MZAZI APP
 
 A self-hosted WhatsApp Web. Link a number the same way the real site does — scan a QR code or type the pairing code — then read and send messages from the browser.
 

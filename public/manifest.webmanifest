@@ -1,7 +1,7 @@
 {
-  "name": "WhatsWeb",
-  "short_name": "WhatsWeb",
-  "description": "Your WhatsApp, in the browser: chats, channels, calls and updates.",
+  "name": "MZAZI APP",
+  "short_name": "MZAZI",
+  "description": "MZAZI APP — your WhatsApp in the browser: chats, channels, calls and updates.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

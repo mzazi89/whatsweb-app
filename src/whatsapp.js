@@ -63,6 +63,7 @@ class WhatsApp extends EventEmitter {
     this.statuses = store.getStatuses ? store.getStatuses() : [];
     this.calls = store.getCalls ? store.getCalls() : [];
     this.groupNames = new Map(); // jid -> subject, resolved lazily
+    this.lidTried = new Set();
     this.groupLookups = new Set();
     this.starting = false;
   }
@@ -339,12 +340,46 @@ class WhatsApp extends EventEmitter {
 
   ingestContact(c) {
     const jid = c.id;
-    if (!jid || !jid.endsWith("@s.whatsapp.net")) return;
-    store.upsertContact(jid, {
-      name: c.name || c.verifiedName || c.notify || undefined,
-      pushName: c.notify || undefined,
-      number: jidToNumber(jid),
-    });
+    if (!jid) return;
+    const name = c.name || c.verifiedName || c.notify || undefined;
+    if (jid.endsWith("@s.whatsapp.net")) {
+      store.upsertContact(jid, { name, pushName: c.notify || undefined, number: jidToNumber(jid) });
+    } else if (jid.endsWith("@lid")) {
+      // A LID carries a name but no number; ask the signal store for the pair.
+      store.upsertContact(jid, { name, pushName: c.notify || undefined });
+      this.resolveLid(jid);
+    }
+  }
+
+  async resolveLid(jid) {
+    if (this.lidTried.has(jid) || !this.sock) return;
+    this.lidTried.add(jid);
+    try {
+      const pn = await this.sock.signalRepository?.lidMapping?.getPNForLID(jid);
+      if (pn) {
+        store.upsertContact(jid, { number: jidToNumber(pn) });
+        this.emit("chats:refresh", this.chats());
+      }
+    } catch (e) {}
+  }
+
+  // Asks WhatsApp for the page of messages older than the oldest one we hold.
+  async loadOlder(jid, count = 50) {
+    if (!this.sock) return { ok: false, reason: "Not connected" };
+    const list = store.messagesFor(jid);
+    const oldest = list[0];
+    if (!oldest) return { ok: false, reason: "Open the chat first" };
+    try {
+      await this.sock.fetchMessageHistory(
+        count,
+        { remoteJid: jid, id: oldest.id, fromMe: !!oldest.fromMe },
+        Math.floor((oldest.ts || Date.now()) / 1000)
+      );
+      this.emit("log", `older history requested ${jid} before ${oldest.ts}`);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, reason: e.message };
+    }
   }
 
   // Group names only arrive with metadata, not with the chat rows.
@@ -497,7 +532,7 @@ class WhatsApp extends EventEmitter {
     return {
       id: jid,
       name,
-      number: group || isLid(jid) ? "" : prettyNumber(jid),
+      number: group ? "" : contact?.number ? prettyNumber(contact.number) : isLid(jid) ? "" : prettyNumber(jid),
       kind: kindOf(jid),
       group: isGroup(jid),
       unread: chat.unread || 0,

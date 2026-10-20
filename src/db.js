@@ -67,8 +67,10 @@ create table if not exists wa_chats (
   kind text,
   last_ts bigint,
   unread int default 0,
+  last_text text,
   primary key (account_id, jid)
 );
+alter table wa_chats add column if not exists last_text text;
 
 create table if not exists wa_contacts (
   account_id text not null,
@@ -142,13 +144,14 @@ async function clearAuth() {
 // ---- chats / contacts ----
 async function saveChat(c) {
   await q(
-    `insert into wa_chats (account_id, jid, name, kind, last_ts, unread) values ($1,$2,$3,$4,$5,$6)
+    `insert into wa_chats (account_id, jid, name, kind, last_ts, unread, last_text) values ($1,$2,$3,$4,$5,$6,$7)
      on conflict (account_id, jid) do update set
        name=coalesce(excluded.name, wa_chats.name),
        kind=coalesce(excluded.kind, wa_chats.kind),
        last_ts=greatest(coalesce(wa_chats.last_ts,0), coalesce(excluded.last_ts,0)),
-       unread=excluded.unread`,
-    [ACCOUNT, c.id, c.name || null, c.kind || null, c.lastTs || null, c.unread || 0]
+       unread=excluded.unread,
+       last_text=case when coalesce(excluded.last_ts,0) >= coalesce(wa_chats.last_ts,0) then coalesce(excluded.last_text, wa_chats.last_text) else wa_chats.last_text end`,
+    [ACCOUNT, c.id, c.name || null, c.kind || null, c.lastTs || null, c.unread || 0, c.last || null]
   );
 }
 
@@ -173,10 +176,10 @@ async function saveMessage(m) {
 
 async function loadChats() {
   const { rows } = await q(
-    "select jid, name, kind, last_ts, unread from wa_chats where account_id=$1 order by last_ts desc nulls last limit 400",
+    "select jid, name, kind, last_ts, unread, last_text from wa_chats where account_id=$1 order by last_ts desc nulls last limit 400",
     [ACCOUNT]
   );
-  return rows.map((r) => ({ id: r.jid, name: r.name, kind: r.kind, lastTs: Number(r.last_ts) || 0, unread: r.unread || 0 }));
+  return rows.map((r) => ({ id: r.jid, name: r.name, kind: r.kind, lastTs: Number(r.last_ts) || 0, unread: r.unread || 0, last: r.last_text }));
 }
 
 async function loadContacts() {

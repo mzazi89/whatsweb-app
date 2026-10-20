@@ -342,3 +342,10 @@ button { cursor: pointer; }
 @media (min-width: 900px) {
   .install { left: auto; right: 24px; bottom: 20px; width: 360px; }
 }
+
+.older-wrap { display: grid; place-items: center; padding: 10px 0 4px; }
+.older {
+  background: var(--rail-2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 999px; padding: 7px 16px; font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.older:disabled { opacity: .55; cursor: default; }

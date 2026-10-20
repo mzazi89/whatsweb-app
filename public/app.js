@@ -245,6 +245,9 @@
     els.chat.hidden = false;
     els.blank.hidden = true;
     document.body.classList.add("show-chat");
+    els.olderWrap.hidden = false;
+    els.older.disabled = false;
+    els.older.textContent = "Load older messages";
     renderChats();
 
     try {
@@ -273,6 +276,7 @@
   function closeChat() {
     state.current = null;
     els.chat.hidden = true;
+    els.olderWrap.hidden = true;
     renderBlank();
     document.body.classList.remove("show-chat");
   }
@@ -438,6 +442,35 @@
   window.addEventListener("appinstalled", () => {
     installBar.hidden = true;
     localStorage.setItem("ww-install-dismissed", "1");
+  });
+
+  els.older.addEventListener("click", async () => {
+    if (!state.current || els.older.disabled) return;
+    els.older.disabled = true;
+    els.older.textContent = "Loading…";
+    const jid = state.current;
+    const before = (state.messages || []).length;
+    try {
+      const out = await api(`/api/chats/${jidOf(jid)}/older`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ count: 50 }) });
+      if (!out.ok) throw new Error(out.reason || "WhatsApp refused");
+      let grew = false;
+      for (let i = 0; i < 4 && !grew; i++) {
+        await new Promise((r) => setTimeout(r, 1200));
+        const { messages } = await api(`/api/chats/${jidOf(jid)}/messages`);
+        if ((messages || []).length > before) {
+          state.messages = messages;
+          renderThread();
+          grew = true;
+        }
+      }
+      els.older.disabled = false;
+      els.older.textContent = grew ? "Load older messages" : "No more messages";
+      if (!grew) els.older.dataset.done = "1";
+    } catch (e) {
+      els.older.disabled = false;
+      els.older.textContent = "Try again";
+      toast(e.message || "Could not load older messages");
+    }
   });
 
   // ── events ─────────────────────────────────────────────────────────────────
