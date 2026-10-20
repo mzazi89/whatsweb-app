@@ -115,6 +115,45 @@ app.get("/api/chats/:jid/messages", (req, res) => {
   res.json({ chat: wa.chatView(jid), messages: wa.messages(jid) });
 });
 
+// GIF search needs a provider key (Giphy or Tenor). Without one the tab says so
+// instead of pretending to search.
+app.get("/api/gif", async (req, res) => {
+  const key = String(process.env.GIF_KEY || "").trim();
+  if (!key) return res.json({ needsKey: true, gifs: [] });
+  const q = String(req.query.q || "hello").slice(0, 60);
+  const provider = String(process.env.GIF_PROVIDER || "tenor").toLowerCase();
+  try {
+    if (provider === "giphy") {
+      const r = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=${encodeURIComponent(key)}&q=${encodeURIComponent(q)}&limit=12&rating=pg`);
+      const d = await r.json();
+      const gifs = (d.data || []).map((g) => ({ preview: g.images.fixed_width_small.url, url: g.images.original.url }));
+      return res.json({ gifs });
+    }
+    const r = await fetch(`https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(q)}&key=${encodeURIComponent(key)}&limit=12&media_filter=tinygif,gif`);
+    const d = await r.json();
+    const gifs = (d.results || []).map((g) => ({ preview: g.media_formats?.tinygif?.url, url: g.media_formats?.gif?.url })).filter((g) => g.url);
+    res.json({ gifs });
+  } catch (e) {
+    res.json({ gifs: [], error: e.message });
+  }
+});
+
+app.post("/api/chats/:jid/gif", async (req, res) => {
+  try {
+    await wa.sendGif(decodeURIComponent(req.params.jid), String(req.body?.url || ""));
+    res.json({ ok: true });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+app.get("/api/stickers", (req, res) => res.json({ stickers: wa.recentStickers() }));
+
+app.post("/api/chats/:jid/sticker", async (req, res) => {
+  try {
+    await wa.sendSticker(decodeURIComponent(req.params.jid), String(req.body?.id || ""));
+    res.json({ ok: true });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
 app.get("/api/me/avatar", async (req, res) => {
   const me = store.getMe?.();
   const jid = me?.id ? (me.id.includes("@") ? me.id : `${me.id}@s.whatsapp.net`) : null;

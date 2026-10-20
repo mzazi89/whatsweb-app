@@ -409,3 +409,38 @@ button { cursor: pointer; }
   font-size: 14px; font-weight: 700; background-size: cover; background-position: center;
   box-shadow: 0 0 0 2px rgba(0,168,132,.35);
 }
+
+/* emoji / gif / sticker tray */
+.tray {
+  border-top: 1px solid var(--line); background: #0e1a20;
+  display: flex; flex-direction: column; max-height: 320px;
+}
+.tray-head { display: flex; align-items: center; gap: 6px; padding: 8px 10px; }
+.tray-tab {
+  background: var(--rail-2); border: 1px solid var(--line); color: var(--muted);
+  border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 12px; font-weight: 700;
+  cursor: pointer; display: grid; place-items: center; min-width: 44px; height: 32px;
+}
+.tray-tab svg { width: 18px; height: 18px; }
+.tray-tab.is-on { color: #b6f5df; border-color: #2c5b4f; background: #17342d; }
+.tray-x { margin-left: auto; background: none; border: 0; color: var(--muted); font-size: 22px; cursor: pointer; }
+.tray-body { overflow-y: auto; padding: 4px 10px 12px; min-height: 0; }
+.tray-sec { margin: 6px 0 4px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; }
+.emoji-grid button {
+  background: none; border: 0; font-size: 24px; line-height: 1; padding: 6px 0;
+  cursor: pointer; border-radius: 8px;
+}
+.emoji-grid button:active { background: var(--rail-2); }
+.sticker-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.sticker-grid button { background: none; border: 0; padding: 0; cursor: pointer; }
+.sticker-grid img { width: 100%; aspect-ratio: 1; object-fit: contain; }
+.tray-note { color: var(--muted); font-size: 12.5px; padding: 12px 4px; line-height: 1.5; }
+.tray-note a { color: var(--accent); }
+.gif-search { display: flex; gap: 8px; padding: 6px 0; }
+.gif-search input {
+  flex: 1; background: var(--rail-2); border: 1px solid var(--line); color: var(--text);
+  border-radius: 999px; padding: 8px 14px; font: inherit;
+}
+.gif-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.gif-grid img { width: 100%; border-radius: 8px; cursor: pointer; }

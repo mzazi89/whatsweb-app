@@ -656,6 +656,37 @@ class WhatsApp extends EventEmitter {
     }
   }
 
+  recentStickers(limit = 40) {
+    const out = [];
+    for (const [id, raw] of this.raw) {
+      const m = this.pack(raw);
+      if (m && m.kind === "sticker") out.push({ id, ts: m.ts, jid: m.jid });
+      if (out.length >= limit * 3) break;
+    }
+    return out.sort((a, b) => b.ts - a.ts).slice(0, limit);
+  }
+
+  async sendGif(jid, url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Could not fetch that GIF");
+    const buf = Buffer.from(await res.arrayBuffer());
+    const type = res.headers.get("content-type") || "";
+    if (type.includes("video") || url.endsWith(".mp4")) {
+      await this.sock.sendMessage(jid, { video: buf, gifPlayback: true });
+    } else {
+      await this.sock.sendMessage(jid, { image: buf });
+    }
+    return true;
+  }
+
+  async sendSticker(jid, id) {
+    const out = await this.media(id);
+    if (!out) throw new Error("Sticker is no longer cached");
+    const buf = fs.readFileSync(out.file);
+    await this.sock.sendMessage(jid, { sticker: buf });
+    return true;
+  }
+
   async media(id) {
     const raw = this.raw.get(id);
     if (!raw) return null;

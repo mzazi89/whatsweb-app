@@ -25,6 +25,7 @@
     brandDp: $("brand-dp"), menu: $("menu"), filters: $("filters"), older: $("older"), olderWrap: $("older-wrap"), cntUnread: $("cnt-unread"), cntGroups: $("cnt-groups"), loadingScreen: $("loading-screen"), loadingNote: $("loading-note"),
     chats: $("chats"), railEmpty: $("rail-empty"), search: $("search"),
     blank: $("blank"), chat: $("chat"), thread: $("thread"),
+    tray: $("tray"), trayBody: $("tray-body"), btnEmoji: $("btn-emoji"),
     chatName: $("chat-name"), chatSub: $("chat-sub"), chatAvatar: $("chat-avatar"),
     text: $("text"), send: $("btn-send"), attach: $("attach"), file: $("attach"),
     link: $("link"), lead: $("link-lead"), pairForm: $("pair-form"),
@@ -482,6 +483,107 @@
       els.link.hidden = false;
       closeChat();
       toast("Logged out");
+    }
+  });
+
+  // ── emoji / gif / stickers ────────────────────────────────────────────────
+  const EMOJI = {
+    "Smileys": "😀 😃 😄 😁 😆 😅 😂 🤣 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😝 😜 🤪 🤨 🧐 🤓 😎 🥳 😏 😒 😞 😔 😟 😕 🙁 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤬 🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤗 🤔 🤭 🤫 🤥 😶 😐 😑 😬 🙄 😯 😦 😧 😮 😲 🥱 😴 🤤 😪 😵 🤐 🥴 🤢 🤮 🤧 😷 🤒 🤕",
+    "Gestures": "👍 👎 👌 🤌 🤏 ✌️ 🤞 🤟 🤘 🤙 👈 👉 👆 👇 ☝️ ✋ 🤚 🖐 🖖 👋 🤝 🙏 💪 🦾 🖕 ✍️ 🤳 💅 👏 🙌 👐 🤲 🫶",
+    "Hearts": "❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❤️‍🔥 ❤️‍🩹 💕 💞 💓 💗 💖 💘 💝 💟 ♥️ 💯 💢 💥 💫 💦 💨",
+    "Animals": "🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🐔 🐧 🐦 🦅 🦆 🦉 🦄 🐝 🦋 🐌 🐞 🐢 🐍 🐙 🦑 🦀 🐡 🐠 🐟 🐬 🐳 🦈 🐊 🐘 🦒 🐎 🐖 🐑 🦙 🐐 🦌",
+    "Food": "🍏 🍎 🍐 🍊 🍋 🍌 🍉 🍇 🍓 🫐 🍒 🍑 🥭 🍍 🥥 🥝 🍅 🥑 🥦 🌽 🥕 🍞 🧀 🍗 🍔 🍟 🍕 🌭 🥪 🌮 🌯 🥗 🍿 🧂 🍦 🍩 🍪 🎂 🍰 🧁 🍫 🍬 🍭 ☕ 🍵 🧃 🥤 🍺 🍷",
+    "Activity": "⚽ 🏀 🏈 ⚾ 🎾 🏐 🏉 🥏 🎱 🏓 🏸 🥅 🏒 🏑 🥍 🏏 🪃 🥊 🥋 🎽 🛹 🛼 🛷 🥌 🎿 ⛷ 🏂 🪂 🏋️ 🤼 🤸 ⛹️ 🤺 🤾 🏌️ 🏇 🧘 🏄 🏊 🤽 🚣 🧗 🚴 🚵 🎪 🎭 🎨 🎬 🎤 🎧 🎼 🎹 🥁 🎷 🎺 🎸",
+    "Travel": "🚗 🚕 🚙 🚌 🚎 🏎 🚓 🚑 🚒 🚐 🛻 🚚 🚛 🚜 🦯 🦽 🚲 🛴 🛵 🏍 🚨 🚔 🚍 🚘 🚖 🚡 🚠 🚟 🚃 🚋 🚞 🚝 🚄 🚅 🚈 🚂 🚆 🚇 🚊 🚉 ✈️ 🛫 🛬 🛩 💺 🛰 🚀 🛸 🚁 🛶 ⛵ 🚤 🛥 🛳 ⛴ 🚢 ⚓",
+    "Objects": "⌚ 📱 💻 ⌨️ 🖥 🖨 🖱 🖲 🕹 🗜 💽 💾 💿 📀 📼 📷 📸 📹 🎥 📽 🎞 📞 ☎️ 📟 📠 📺 📻 🎙 🎚 🎛 🧭 ⏱ ⏲ ⏰ 🕰 ⌛ ⏳ 📡 🔋 🔌 💡 🔦 🕯 🪔 🧯 🛢 💸 💵 💴 💶 💷 💰 💳 🧾 💎 ⚖️ 🧰 🔧 🔨 ⚒ 🛠 ⛏ 🔩 ⚙️ 🧱 ⛓ 🧲 🔫 💣 🧨 🪓 🔪 🗡 ⚔️ 🛡 🚬 ⚰️ ⚱️ 🏺 🔮 📿 🧿 💈 ⚗️ 🔭 🔬 🕳 💊 💉 🩸 🩹 🩺 🌡 🪥 🧹 🧺 🧻 🚽 🚰 🚿 🛁 🛀 🧼 🪒 🧽 🔑 🗝 🚪 🪑 🛋 🛏 🖼 🛍 🛒 🎁 🎈 🎏 🎀 🎊 🎉 🎎 🏮 🎐 🧧 ✉️ 📩 📨 📧 💌 📥 📤 📦 🏷 📪 📫 📬 📭 📮 📯 📜 📃 📄 📑 🧾 📊 📈 📉 🗒 🗓 📆 📅 🗑 📇 🗃 🗳 🗄 📋 📁 📂 🗂 🗞 📰 📓 📔 📒 📕 📗 📘 📙 📚 📖 🔖 🧷 🔗 📎 🖇 📐 📏 🧮 📌 📍 ✂️ 🖊 🖋 ✒️ 🖌 🖍 📝 ✏️ 🔍 🔎 🔏 🔐 🔒 🔓",
+    "Symbols": "✅ ❌ ❎ ✔️ ☑️ 🔘 ⚪ ⚫ 🔴 🟠 🟡 🟢 🔵 🟣 🟤 🔺 🔻 🔸 🔹 🔶 🔷 🔳 🔲 ▪️ ▫️ ◾ ◽ ◼️ ◻️ 🟥 🟧 🟨 🟩 🟦 🟪 🟫 ⬛ ⬜ 🔈 🔉 🔊 🔇 📢 📣 📯 🔔 🔕 🎵 🎶 💤 ♻️ ⚡ 🔥 💧 🌟 ⭐ 🌠 🌈 ☀️ 🌤 ⛅ 🌥 ☁️ 🌦 🌧 ⛈ 🌩 🌨 ❄️ ☃️ ⛄ 🌬 💨 🌪 🌫 🌊 💦 💨 🕐 🕑 🕒 🕓 🕔 🕕 🕖 🕗 🕘 🕙 🕚 🕛 ⏰ ⏳ ⌛"
+  };
+
+  let trayTab = "emoji";
+
+  function insertEmoji(ch) {
+    const el = els.text;
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? el.value.length;
+    el.value = el.value.slice(0, start) + ch + el.value.slice(end);
+    el.selectionStart = el.selectionEnd = start + ch.length;
+    el.focus();
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  function paintTray() {
+    for (const b of document.querySelectorAll(".tray-tab")) b.classList.toggle("is-on", b.dataset.tray === trayTab);
+    if (trayTab === "emoji") {
+      els.trayBody.innerHTML = Object.entries(EMOJI).map(([name, list]) =>
+        `<div class="tray-sec">${name}</div><div class="emoji-grid">${
+          list.split(" ").filter(Boolean).map((e) => `<button data-e="${e}">${e}</button>`).join("")
+        }</div>`).join("");
+    } else if (trayTab === "sticker") {
+      els.trayBody.innerHTML = `<div class="tray-note">Loading stickers…</div>`;
+      api("/api/stickers").then(({ stickers }) => {
+        if (!stickers.length) {
+          els.trayBody.innerHTML = `<div class="tray-note">No stickers in this session yet. Once a sticker arrives in a chat it appears here and can be sent again.</div>`;
+          return;
+        }
+        els.trayBody.innerHTML = `<div class="tray-sec">Recent</div><div class="sticker-grid">${
+          stickers.map((s) => `<button data-sticker="${esc(s.id)}"><img src="/api/media/${encodeURIComponent(s.id)}" alt=""></button>`).join("")
+        }</div>`;
+      }).catch(() => { els.trayBody.innerHTML = `<div class="tray-note">Could not load stickers.</div>`; });
+    } else {
+      els.trayBody.innerHTML = `<div class="gif-search"><input id="gif-q" placeholder="Search GIFs"></div><div class="gif-grid" id="gif-grid"></div>`;
+      const q = $("gif-q");
+      q.addEventListener("keydown", (e) => { if (e.key === "Enter") searchGif(q.value); });
+      searchGif("");
+    }
+  }
+
+  async function searchGif(q) {
+    const grid = $("gif-grid");
+    if (!grid) return;
+    grid.innerHTML = `<div class="tray-note">Searching…</div>`;
+    try {
+      const out = await api(`/api/gif?q=${encodeURIComponent(q || "hello")}`);
+      if (out.needsKey) {
+        grid.innerHTML = `<div class="tray-note">GIF search needs a free API key. Add <b>GIF_KEY</b> in Render (Giphy or Tenor) and this tab fills up.</div>`;
+        return;
+      }
+      grid.innerHTML = out.gifs.map((g) => `<img data-gif="${g.url}" src="${g.preview}" alt="">`).join("") ||
+        `<div class="tray-note">Nothing found.</div>`;
+    } catch (e) {
+      grid.innerHTML = `<div class="tray-note">GIF search failed.</div>`;
+    }
+  }
+
+  els.btnEmoji.addEventListener("click", () => {
+    els.tray.hidden = !els.tray.hidden;
+    if (!els.tray.hidden) paintTray();
+  });
+  $("tray-x").addEventListener("click", () => { els.tray.hidden = true; });
+  document.querySelector(".tray-head").addEventListener("click", (e) => {
+    const b = e.target.closest(".tray-tab");
+    if (!b) return;
+    trayTab = b.dataset.tray;
+    paintTray();
+  });
+  els.trayBody.addEventListener("click", async (e) => {
+    const em = e.target.closest("[data-e]");
+    if (em) return insertEmoji(em.dataset.e);
+    const st = e.target.closest("[data-sticker]");
+    if (st) {
+      if (!state.current) return toast("Open a chat first");
+      try {
+        await api(`/api/chats/${jidOf(state.current)}/sticker`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: st.dataset.sticker }) });
+        toast("Sticker sent");
+      } catch (err) { toast(err.message); }
+      return;
+    }
+    const gi = e.target.closest("[data-gif]");
+    if (gi) {
+      if (!state.current) return toast("Open a chat first");
+      try {
+        await api(`/api/chats/${jidOf(state.current)}/gif`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: gi.dataset.gif }) });
+        toast("GIF sent");
+      } catch (err) { toast(err.message); }
     }
   });
 
