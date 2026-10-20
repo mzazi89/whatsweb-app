@@ -584,7 +584,7 @@
   function openGroupInfo() {
     const jid = state.current;
     if (!jid) return;
-    if (!jid.endsWith("@g.us")) return toast("Contact info is not available in the browser build.");
+    if (!jid.endsWith("@g.us")) return openContactInfo(jid);
     els.ginfo.hidden = false;
     els.ginfoName.textContent = state.group?.subject || "Group";
     $("ginfo-title").textContent = state.group?.subject || "Group";
@@ -613,7 +613,36 @@
     openGroupInfo();
   });
 
-  $("ginfo-back").addEventListener("click", () => { els.ginfo.hidden = true; });
+  function openContactInfo(jid) {
+    els.ginfo.hidden = false;
+    els.ginfoName.textContent = "Contact info";
+    $("ginfo-title").textContent = "Contact";
+    $("ginfo-sub").textContent = "";
+    els.ginfoBody.innerHTML = `<div class="gp-sec">Loading…</div>`;
+    document.querySelectorAll("#ginfo-tabs button").forEach((b) => { b.style.display = b.dataset.gtab === "members" ? "" : "none"; });
+    api(`/api/chats/${jidOf(jid)}/info`).then(({ contact }) => {
+      if (!contact) { els.ginfoBody.innerHTML = `<div class="gp-sec">No details for this contact.</div>`; return; }
+      $("ginfo-title").textContent = contact.name;
+      $("ginfo-sub").textContent = contact.lid ? "WhatsApp contact" : contact.number;
+      const av = $("ginfo-avatar");
+      api(`/api/chats/${jidOf(jid)}/avatar`).then(({ url }) => {
+        if (url) { av.style.backgroundImage = `url("${url}")`; av.textContent = ""; }
+        else { av.style.backgroundImage = ""; av.textContent = initial(contact.name, false); }
+      }).catch(() => {});
+      els.ginfoBody.innerHTML = `
+        <div class="gp-sec">About</div>
+        <div class="gp-row"><div class="t">${esc(contact.about || "No about set")}</div></div>
+        <div class="gp-sec">Phone number</div>
+        <div class="gp-row"><div class="t">${esc(contact.number || "Not shared")}</div></div>
+        <div class="gp-sec">Chat</div>
+        ${row("Clear chat", "Delete the messages stored on this server.", "slash", "clear", true)}`;
+    }).catch(() => { els.ginfoBody.innerHTML = `<div class="gp-sec">Could not load this contact.</div>`; });
+  }
+
+  $("ginfo-back").addEventListener("click", () => {
+    els.ginfo.hidden = true;
+    document.querySelectorAll("#ginfo-tabs button").forEach((b) => { b.style.display = ""; });
+  });
   document.getElementById("ginfo-tabs").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-gtab]");
     if (b) paintGroup(b.dataset.gtab);
@@ -881,7 +910,7 @@
     const onAvatar = !!e.target.closest("[data-avatar]");
     await openChat(jid);
     // Tapping the photo in the list goes straight to the group's info page.
-    if (onAvatar && jid && jid.endsWith("@g.us")) openGroupInfo();
+    if (onAvatar) openGroupInfo();
   });
 
   els.search.addEventListener("input", () => { state.filter = els.search.value; renderChats(); });

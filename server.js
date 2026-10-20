@@ -157,9 +157,8 @@ app.post("/api/chats/:jid/clear", (req, res) => {
 
 app.get("/api/chats/:jid/info", async (req, res) => {
   const jid = decodeURIComponent(req.params.jid);
-  if (!jid.endsWith("@g.us")) return res.json({ group: null });
-  const info = await wa.groupInfo(jid);
-  res.json({ group: info });
+  if (jid.endsWith("@g.us")) return res.json({ group: await wa.groupInfo(jid), contact: null });
+  res.json({ group: null, contact: await wa.contactInfo(jid) });
 });
 
 app.get("/api/stickers", (req, res) => res.json({ stickers: wa.recentStickers() }));

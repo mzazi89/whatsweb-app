@@ -445,6 +445,22 @@ class WhatsApp extends EventEmitter {
     return true;
   }
 
+  async contactInfo(jid) {
+    const c = store.contact(jid) || {};
+    let about = "";
+    try {
+      const st = await this.sock.fetchStatus(jid);
+      about = st?.[0]?.status || "";
+    } catch (e) {}
+    return {
+      jid,
+      name: c.name || c.pushName || (isLid(jid) ? "Unknown contact" : prettyNumber(jid)),
+      number: c.number ? prettyNumber(c.number) : isLid(jid) ? "" : prettyNumber(jid),
+      about,
+      lid: isLid(jid),
+    };
+  }
+
   async groupInfo(jid) {
     await this.ensureGroupName(jid);
     const meta = this.groupMeta.get(jid);
