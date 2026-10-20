@@ -835,64 +835,67 @@
     // the screen edges, so it is always travelling side to side and up/down.
     const WORD = "MZAZI";
     const WORD_LOOKS = [
-      { scale: 0.27, speed: 1.55, alpha: 0.68, spot: [0.30, 0.26], color: "#3ddc84", glow: "rgba(61,220,132,.6)" },
-      { scale: 0.19, speed: 2.30, alpha: 0.55, spot: [0.66, 0.55], color: "#ff5fa2", glow: "rgba(255,95,162,.55)" },
-      { scale: 0.125, speed: 1.15, alpha: 0.42, spot: [0.38, 0.80], color: "#ffd166", glow: "rgba(255,209,102,.5)" },
+      { count: 7, size: [0.045, 0.075], speed: [0.22, 0.6], alpha: [0.14, 0.26] },
+      { count: 4, size: [0.075, 0.105], speed: [0.3, 0.7], alpha: [0.16, 0.28] },
     ];
+    const WORD_COLORS = ["#3ddc84", "#ff5fa2", "#ffd166", "#8ad7ff", "#c9a7ff", "#ff9f68"];
     const wordFont = (size) => `900 ${size}px "Arial Black", Impact, system-ui, sans-serif`;
     // Keep the drifting word inside the list area: over the top bar or the tab
     // bar it hides the labels underneath, which makes them unreadable.
-    const WORD_TOP = 96, WORD_BOT = 74;
+    const WORD_TOP = 156, WORD_BOT = 78;
 
     function buildWords() {
-      words = WORD_LOOKS.map((look, i) => {
-        let size = Math.max(14, Math.min(w, h) * look.scale);
-        ctx.font = wordFont(size);
-        // Shrink until the word fits the viewport, so it can drift instead of
-        // sitting pinned against both edges on a narrow phone screen.
-        const maxW = w * 0.68;
-        let textW = ctx.measureText(WORD).width;
-        if (textW > maxW) {
-          size = Math.max(14, size * (maxW / textW));
+      const min = Math.min(w, h);
+      const seen = [];
+      let n = 0;
+      words = [];
+      for (const band of WORD_LOOKS) {
+        for (let i = 0; i < band.count; i++, n++) {
+          let size = Math.max(11, min * rnd(band.size[0], band.size[1]));
           ctx.font = wordFont(size);
-          textW = ctx.measureText(WORD).width;
+          const halfW = (ctx.measureText(WORD).width / 2) * 1.06; // letterSpacing pad
+          const halfH = size * 0.62;
+          const clampX = (x) => Math.min(Math.max(x, halfW + 4), Math.max(halfW + 4, w - halfW - 4));
+          const minY = WORD_TOP + halfH, maxY = Math.max(minY, h - WORD_BOT - halfH);
+          const clampY = (y) => Math.min(Math.max(y, minY), maxY);
+          // Loose grid + jitter: the words scatter over the whole list area
+          // instead of clustering in the middle of the screen.
+          const cols = 3, rows = Math.ceil((WORD_LOOKS[0].count + WORD_LOOKS[1].count) / cols);
+          const gx = ((n % cols) + 0.5) / cols, gy = (Math.floor(n / cols) + 0.5) / rows;
+          seen.push({
+            size, halfW, halfH,
+            color: WORD_COLORS[n % WORD_COLORS.length],
+            alpha: rnd(band.alpha[0], band.alpha[1]),
+            x: clampX(w * gx + rnd(-w * 0.13, w * 0.13)),
+            y: clampY(WORD_TOP + (h - WORD_TOP - WORD_BOT) * gy + rnd(-h * 0.07, h * 0.07)),
+            vx: (Math.random() < 0.5 ? -1 : 1) * rnd(band.speed[0], band.speed[1]),
+            vy: (Math.random() < 0.5 ? -1 : 1) * rnd(band.speed[0] * 0.7, band.speed[1]),
+            rot: rnd(-0.45, 0.45),
+            phase: rnd(0, Math.PI * 2),
+            spin: rnd(0.02, 0.07) * (Math.random() < 0.5 ? -1 : 1),
+          });
         }
-        const halfW = (textW / 2) * 1.06; // letterSpacing pad
-        const halfH = size * 0.62;
-        const clampX = (x) => Math.min(Math.max(x, halfW + 6), Math.max(halfW + 6, w - halfW - 6));
-        const minY = WORD_TOP + halfH, maxY = Math.max(minY, h - WORD_BOT - halfH);
-        const clampY = (y) => Math.min(Math.max(y, minY), maxY);
-        return {
-          ...look, size, halfW, halfH,
-          // start spread apart so the three words do not pile up on open
-          x: clampX(w * look.spot[0] + rnd(-w * 0.04, w * 0.04)),
-          y: clampY(h * look.spot[1] + rnd(-h * 0.04, h * 0.04)),
-          // every word travels on both axes; alternate directions so they cross
-          vx: (i % 2 ? -1 : 1) * look.speed * rnd(0.85, 1.2),
-          vy: (i % 2 ? 1 : -1) * look.speed * rnd(0.55, 0.95),
-          rot: rnd(-0.3, 0.3),
-          phase: rnd(0, Math.PI * 2),
-        };
-      });
+      }
+      words = seen;
     }
 
     function drawWord(it) {
       const now = performance.now() / 1000;
       ctx.save();
       ctx.translate(it.x, it.y);
-      ctx.rotate(it.rot + Math.sin(now * 0.7 + it.phase) * 0.05);
+      ctx.rotate(it.rot + Math.sin(now * it.spin + it.phase) * 0.12);
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.font = wordFont(it.size);
       if ("letterSpacing" in ctx) ctx.letterSpacing = `${Math.round(it.size * 0.05)}px`;
       ctx.globalAlpha = it.alpha;
-      ctx.shadowColor = it.glow;
-      ctx.shadowBlur = it.size * 0.3;
+      ctx.shadowColor = it.color;
+      ctx.shadowBlur = it.size * 0.35;
       ctx.fillStyle = it.color;
       ctx.fillText(WORD, 0, 0);
       ctx.shadowBlur = 0;
-      ctx.globalAlpha = it.alpha * 0.65;
-      ctx.lineWidth = Math.max(1, it.size * 0.03);
+      ctx.globalAlpha = it.alpha * 0.5;
+      ctx.lineWidth = Math.max(0.8, it.size * 0.03);
       ctx.strokeStyle = "#ffffff";
       ctx.strokeText(WORD, 0, 0);
       ctx.restore();
