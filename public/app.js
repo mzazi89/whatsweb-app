@@ -121,13 +121,14 @@
     els.filters.style.display = tab === "chats" ? "" : "none";
 
     let rows = [];
+    let archivedCount = 0;
     if (tab === "chats" || tab === "channels") {
       const want = tab === "chats" ? (c) => c.kind === "dm" || c.kind === "group" : (c) => c.kind === "channel" || c.kind === "broadcast";
       // Only a literal true counts as archived: older rows carry undefined.
       const isArch = (c) => c.archived === true;
       const all = state.chats.filter(want);
       const pool = all.filter((c) => (state.showArchived ? isArch(c) : !isArch(c)));
-      const archivedCount = all.filter(isArch).length;
+      archivedCount = all.filter(isArch).length;
       rows = pool.filter((c) => {
         if (tab === "chats" && state.filterKind === "unread" && !(c.unread > 0)) return false;
         if (tab === "chats" && state.filterKind === "groups" && c.kind !== "group") return false;
@@ -416,9 +417,10 @@
       }, 30000);
     }
     state.snapState = snap.state;
-    if (snap.me) {
-      els.meName.textContent = snap.me.name || "Linked";
-      els.meNum.textContent = snap.me.number ? "+" + snap.me.number : "";
+    if (snap.me && els.meAvatar) {
+      // the old profile bar was replaced by the brand + avatar circle
+      if (els.meName) els.meName.textContent = snap.me.name || "Linked";
+      if (els.meNum) els.meNum.textContent = snap.me.number ? "+" + snap.me.number : "";
       els.meAvatar.textContent = initial(snap.me.name || snap.me.number);
     }
     const showOverlay = snap.state !== "open" &&
