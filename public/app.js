@@ -716,6 +716,104 @@
     }
   });
 
+  // ── screen animation (canvas overlay) ─────────────────────────────────────
+  const FX = (() => {
+    const canvas = document.getElementById("fx-canvas");
+    if (!canvas) return { start() {} };
+    const ctx = canvas.getContext("2d");
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    let type = "off", parts = [], raf = 0, w = 0, h = 0;
+
+    const TYPES = {
+      flowers: { n: 16, color: () => ["#ff8fb1", "#ffc2d1", "#f7e6a5", "#e8b4ff"][Math.floor(Math.random() * 4)] },
+      fire: { n: 34, color: () => ["#ffb347", "#ff7a1a", "#ffd166", "#ff4d1a"][Math.floor(Math.random() * 4)] },
+      water: { n: 40, color: () => "rgba(140,205,255,.75)" },
+      snow: { n: 55, color: () => "rgba(255,255,255,.85)" },
+      confetti: { n: 30, color: () => ["#ff4d6d", "#ffd166", "#4cc9f0", "#8ac926", "#c77dff"][Math.floor(Math.random() * 5)] },
+      bubbles: { n: 22, color: () => "rgba(160,230,255,.35)" },
+      leaves: { n: 18, color: () => ["#8ac926", "#c9a227", "#e07a2f", "#5e8c31"][Math.floor(Math.random() * 4)] },
+    };
+
+    function resize() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = window.innerWidth; h = window.innerHeight;
+      canvas.width = w * dpr; canvas.height = h * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function spawn(top) {
+      const c = TYPES[type];
+      const up = type === "fire" || type === "bubbles";
+      return {
+        x: rnd(0, w),
+        y: up ? (top ? rnd(h, h + 60) : h + 20) : (top ? rnd(-h, 0) : rnd(-40, 0)),
+        r: type === "flowers" ? rnd(4, 7) : type === "confetti" ? rnd(3, 6) : rnd(1.2, 4),
+        vy: up ? rnd(-0.9, -0.3) : type === "water" ? rnd(3.5, 6) : rnd(0.5, 1.8),
+        vx: rnd(-0.35, 0.35),
+        a: rnd(0, Math.PI * 2),
+        va: rnd(-0.03, 0.03),
+        col: c.color(),
+        life: 1,
+      };
+    }
+
+    function draw(p) {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.a);
+      ctx.fillStyle = p.col;
+      if (type === "flowers") {
+        for (let i = 0; i < 5; i++) {
+          ctx.beginPath();
+          ctx.ellipse(Math.cos((i / 5) * Math.PI * 2) * p.r, Math.sin((i / 5) * Math.PI * 2) * p.r, p.r * 0.75, p.r * 0.45, (i / 5) * Math.PI * 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (type === "leaves") {
+        ctx.beginPath(); ctx.ellipse(0, 0, p.r * 1.8, p.r * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+      } else if (type === "confetti") {
+        ctx.fillRect(-p.r, -p.r / 2, p.r * 2, p.r);
+      } else if (type === "water") {
+        ctx.beginPath(); ctx.ellipse(0, 0, p.r * 0.7, p.r * 1.9, 0, 0, Math.PI * 2); ctx.fill();
+      } else if (type === "bubbles") {
+        ctx.strokeStyle = p.col; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.arc(0, 0, p.r * 2, 0, Math.PI * 2); ctx.stroke();
+      } else if (type === "fire") {
+        ctx.globalAlpha = 0.85;
+        ctx.beginPath(); ctx.arc(0, 0, p.r, 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.beginPath(); ctx.arc(0, 0, p.r, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function step() {
+      ctx.clearRect(0, 0, w, h);
+      for (const p of parts) {
+        p.x += p.vx + Math.sin((p.y + p.a * 40) / 60) * 0.35;
+        p.y += p.vy;
+        p.a += p.va;
+        if (p.y > h + 40 || p.y < -60 || p.x < -60 || p.x > w + 60) Object.assign(p, spawn(false));
+        draw(p);
+      }
+      raf = requestAnimationFrame(step);
+    }
+
+    return {
+      start(t) {
+        cancelAnimationFrame(raf); raf = 0; parts = [];
+        type = t;
+        if (!TYPES[t] || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+        resize();
+        for (let i = 0; i < TYPES[t].n; i++) {
+          const p = spawn(true);
+          p.y = rnd(-h, h); // already spread over the screen on start
+          parts.push(p);
+        }
+        step();
+      },
+    };
+  })();
+
   // ── settings: profile, theme, wallpaper ───────────────────────────────────
   const prefs = {
     get theme() { return localStorage.getItem("ww-theme") || "dark"; },
@@ -724,6 +822,8 @@
     set wall(v) { localStorage.setItem("ww-wall", v); },
     get wallImage() { return localStorage.getItem("ww-wall-image") || ""; },
     set wallImage(v) { localStorage.setItem("ww-wall-image", v); },
+    get fx() { return localStorage.getItem("ww-fx") || "off"; },
+    set fx(v) { localStorage.setItem("ww-fx", v); },
   };
 
   function applyPrefs() {
@@ -733,6 +833,9 @@
     els.thread.style.backgroundImage = prefs.wall === "custom" && img ? `url("${img}")` : "";
     for (const b of document.querySelectorAll("#themes .chip")) b.classList.toggle("is-on", b.dataset.theme === prefs.theme);
     for (const b of document.querySelectorAll("#walls .wall[data-wall]")) b.classList.toggle("on", b.dataset.wall === prefs.wall);
+    document.body.dataset.fx = prefs.fx;
+    for (const b of document.querySelectorAll("#fx .chip")) b.classList.toggle("is-on", b.dataset.fx === prefs.fx);
+    FX.start(prefs.fx);
   }
 
   function openSettings() {
@@ -759,6 +862,13 @@
     if (!b) return;
     prefs.wall = b.dataset.wall;
     if (b.dataset.wall !== "custom") prefs.wallImage = "";
+    applyPrefs();
+  });
+
+  document.getElementById("fx").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-fx]");
+    if (!b) return;
+    prefs.fx = b.dataset.fx;
     applyPrefs();
   });
 

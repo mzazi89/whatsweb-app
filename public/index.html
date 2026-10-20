@@ -145,6 +145,19 @@
         <input type="file" id="set-wall" accept="image/*" hidden>
       </div>
 
+      <div class="gp-sec">Screen animation</div>
+      <div class="chip-row" id="fx">
+        <button class="chip is-on" data-fx="off">Off</button>
+        <button class="chip" data-fx="flowers">Flowers</button>
+        <button class="chip" data-fx="fire">Fire</button>
+        <button class="chip" data-fx="water">Water</button>
+        <button class="chip" data-fx="snow">Snow</button>
+        <button class="chip" data-fx="confetti">Confetti</button>
+        <button class="chip" data-fx="bubbles">Bubbles</button>
+        <button class="chip" data-fx="leaves">Leaves</button>
+      </div>
+      <canvas id="fx-canvas" aria-hidden="true"></canvas>
+
       <div class="gp-sec">Linked device</div>
       <div class="gp-row"><div class="t" id="set-number">Not linked</div></div>
       <div class="gp-row danger" id="set-logout"><div class="t">Log out</div></div>
