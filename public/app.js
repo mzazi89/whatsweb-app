@@ -835,9 +835,9 @@
     // the screen edges, so it is always travelling side to side and up/down.
     const WORD = "MZAZI";
     const WORD_LOOKS = [
-      { scale: 0.27, speed: 1.55, alpha: 0.9, spot: [0.30, 0.26], color: "#3ddc84", glow: "rgba(61,220,132,.6)" },
-      { scale: 0.19, speed: 2.30, alpha: 0.72, spot: [0.66, 0.55], color: "#ff5fa2", glow: "rgba(255,95,162,.55)" },
-      { scale: 0.125, speed: 1.15, alpha: 0.58, spot: [0.38, 0.80], color: "#ffd166", glow: "rgba(255,209,102,.5)" },
+      { scale: 0.27, speed: 1.55, alpha: 0.68, spot: [0.30, 0.26], color: "#3ddc84", glow: "rgba(61,220,132,.6)" },
+      { scale: 0.19, speed: 2.30, alpha: 0.55, spot: [0.66, 0.55], color: "#ff5fa2", glow: "rgba(255,95,162,.55)" },
+      { scale: 0.125, speed: 1.15, alpha: 0.42, spot: [0.38, 0.80], color: "#ffd166", glow: "rgba(255,209,102,.5)" },
     ];
     const wordFont = (size) => `900 ${size}px "Arial Black", Impact, system-ui, sans-serif`;
     // Keep the drifting word inside the list area: over the top bar or the tab
