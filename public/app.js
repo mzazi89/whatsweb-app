@@ -123,8 +123,11 @@
     let rows = [];
     if (tab === "chats" || tab === "channels") {
       const want = tab === "chats" ? (c) => c.kind === "dm" || c.kind === "group" : (c) => c.kind === "channel" || c.kind === "broadcast";
-      const pool = state.chats.filter(want).filter((c) => (state.showArchived ? c.archived : !c.archived));
-      const archivedCount = state.chats.filter(want).filter((c) => c.archived).length;
+      // Only a literal true counts as archived: older rows carry undefined.
+      const isArch = (c) => c.archived === true;
+      const all = state.chats.filter(want);
+      const pool = all.filter((c) => (state.showArchived ? isArch(c) : !isArch(c)));
+      const archivedCount = all.filter(isArch).length;
       rows = pool.filter((c) => {
         if (tab === "chats" && state.filterKind === "unread" && !(c.unread > 0)) return false;
         if (tab === "chats" && state.filterKind === "groups" && c.kind !== "group") return false;
