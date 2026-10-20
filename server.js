@@ -217,7 +217,8 @@ app.get("/api/chats/:jid/avatar", async (req, res) => {
 app.post("/api/chats/:jid/older", async (req, res) => {
   const count = Math.min(Math.max(Number(req.body?.count) || 50, 10), 100);
   const out = await wa.loadOlder(decodeURIComponent(req.params.jid), count);
-  res.status(out.ok ? 200 : 400).json(out);
+  // `error` is what the client surfaces in a toast; `reason` stays for the API.
+  res.status(out.ok ? 200 : 400).json({ ...out, error: out.reason });
 });
 
 app.post("/api/chats/:jid/read", async (req, res) => {
