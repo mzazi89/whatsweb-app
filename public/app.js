@@ -57,12 +57,12 @@
 
   function shortTime(ts) {
     if (!ts) return "";
-    const d = new Date(ts), now = new Date();
-    if (d.toDateString() === now.toDateString()) return timeOf(ts);
-    const y = new Date(now); y.setDate(now.getDate() - 1);
-    if (d.toDateString() === y.toDateString()) return "Yesterday";
-    return d.toLocaleDateString([], { day: "2-digit", month: "2-digit", year: "2-digit" });
+    const d = new Date(ts);
+    let h = d.getHours(); const m = String(d.getMinutes()).padStart(2, "0");
+    const ap = h >= 12 ? "PM" : "AM"; h = h % 12 || 12;
+    return `${h}:${m} ${ap}`;
   }
+
 
   let toastTimer;
   function toast(msg) {
@@ -230,7 +230,7 @@
       if (who) parts.push(`<div class="who">${esc(who)}</div>`);
     }
     if (m.quoted && m.quoted.text) {
-      const qname = m.quoted.name || (m.quoted.from ? pretty(m.quoted.from) : "");
+      const qname = m.quoted.name || (m.quoted.mine ? "You" : "");
       parts.push(`<div class="quote">${qname ? `<b>${esc(qname)}</b>` : ""}<span>${esc(m.quoted.text).slice(0, 220)}</span></div>`);
     }
 

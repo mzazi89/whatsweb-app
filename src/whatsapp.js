@@ -42,7 +42,8 @@ const kindOf = (jid) => {
 const prettyNumber = (jid) => {
   if (String(jid || "").endsWith("@lid")) return "";
   const n = String(jid || "").split("@")[0].split(":")[0].replace(/\D/g, "");
-  if (!n || n.length > 14) return "";
+  // 14+ digits without a real suffix is a LID, not a subscriber number.
+  if (!n || n.length >= 14) return "";
   if (!/^\d+$/.test(n)) return "";
   if (n.length === 12) return `+${n.slice(0, 3)} ${n.slice(3, 6)} ${n.slice(6, 9)} ${n.slice(9)}`;
   if (n.length === 11) return `+${n.slice(0, 1)} ${n.slice(1, 4)} ${n.slice(4, 7)} ${n.slice(7)}`;
@@ -509,8 +510,10 @@ class WhatsApp extends EventEmitter {
         const q = ctx?.quotedMessage;
         if (!q) return null;
         const body = q.conversation || q.extendedTextMessage?.text || q.imageMessage?.caption || q.videoMessage?.caption || "";
-        const from = ctx.participant || "";
-        return { from, name: this.nameFor(from), text: body || (q.imageMessage ? "Photo" : q.videoMessage ? "Video" : q.audioMessage ? "Voice note" : q.stickerMessage ? "Sticker" : "Message") };
+        const me = store.getMe()?.id;
+        const from = ctx.participant || (key.fromMe ? me : "");
+        const mine = !!me && (from === me || (ctx.participant && ctx.participant === me));
+        return { from, mine, name: mine ? "You" : this.nameFor(from), text: body || (q.imageMessage ? "Photo" : q.videoMessage ? "Video" : q.audioMessage ? "Voice note" : q.stickerMessage ? "Sticker" : "Message") };
       })(),
       mentioned: inner.extendedTextMessage?.contextInfo?.mentionedJid || [],
       quoted:
