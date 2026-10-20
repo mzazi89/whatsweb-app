@@ -516,23 +516,93 @@ body[data-theme="light"] .chat-row:hover { background:#f5f6f6; }
 body[data-theme="light"] .tab, body[data-theme="light"] .brand { color:#111b21; }
 body[data-theme="light"] .chat, body[data-theme="light"] .thread { background:#efeae2; }
 
-/* wallpapers */
-body[data-wall="doodle"] .thread {
-  background-image: radial-gradient(rgba(255,255,255,.045) 1px, transparent 1px);
-  background-size: 22px 22px;
+
+/* wallpaper gallery */
+.wall-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 4px 0 10px; }
+.wall {
+  display: grid; gap: 6px; justify-items: center; background: none; border: 0;
+  color: var(--muted); font: inherit; font-size: 11px; cursor: pointer; padding: 0;
 }
-body[data-wall="grid"] .thread {
-  background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
-  background-size: 28px 28px;
+.wall i { font-style: normal; font-size: 9px; color: var(--green); letter-spacing: .04em; }
+.wall .sw {
+  width: 100%; aspect-ratio: 1; border-radius: 10px; border: 1px solid var(--line);
+  background-color: #0b141a;
+}
+.wall.on .sw { box-shadow: 0 0 0 2px var(--green); border-color: transparent; }
+.wall.on { color: var(--text); }
+
+.sw-none { background: #0b141a; }
+.sw-doodle { background-image: radial-gradient(rgba(255,255,255,.14) 1px, transparent 1px); background-size: 8px 8px; }
+.sw-grid { background-image: linear-gradient(rgba(255,255,255,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.12) 1px, transparent 1px); background-size: 10px 10px; }
+.sw-waves { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.1) 0 2px, transparent 2px 8px); }
+.sw-carbon { background-image: repeating-linear-gradient(45deg, #16232b 0 3px, #0e1a20 3px 6px); }
+.sw-bubbles { background-image: radial-gradient(circle at 30% 30%, rgba(0,168,132,.35) 0 6px, transparent 7px), radial-gradient(circle at 70% 65%, rgba(83,189,235,.28) 0 5px, transparent 6px); }
+.sw-topo { background-image: repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,.12) 0 1px, transparent 1px 7px); }
+.sw-aurora { background: linear-gradient(135deg, #06251f, #0b1440, #2a0f3a); }
+.sw-stars { background: radial-gradient(1px 1px at 20% 30%, #fff, transparent), radial-gradient(1px 1px at 60% 70%, #cfe, transparent), radial-gradient(1px 1px at 80% 20%, #fff, transparent), #050a10; }
+.sw-lava { background: radial-gradient(circle at 30% 70%, #ff5b2e, transparent 55%), radial-gradient(circle at 70% 30%, #ffcc33, transparent 50%), #1a0603; }
+.sw-neon { background: linear-gradient(120deg, #00ffd0, #7a2bff, #ff2bd6); }
+.sw-photo { background: linear-gradient(135deg,#20323a,#0d1a20); position: relative; }
+.sw-photo::after { content: "+"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 18px; color: var(--muted); }
+
+/* applied to the conversation */
+body[data-wall="doodle"] .thread { background-image: radial-gradient(rgba(255,255,255,.045) 1px, transparent 1px); background-size: 22px 22px; }
+body[data-wall="grid"] .thread { background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px); background-size: 28px 28px; }
+body[data-wall="waves"] .thread { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.035) 0 2px, transparent 2px 14px); }
+body[data-wall="carbon"] .thread { background: repeating-linear-gradient(45deg, #0f1a20 0 4px, #0b141a 4px 8px); }
+body[data-wall="bubbles"] .thread {
+  background-image: radial-gradient(circle at 18% 22%, rgba(0,168,132,.10) 0 60px, transparent 61px),
+                    radial-gradient(circle at 78% 68%, rgba(83,189,235,.08) 0 48px, transparent 49px),
+                    radial-gradient(circle at 45% 88%, rgba(255,255,255,.05) 0 36px, transparent 37px);
+}
+body[data-wall="topo"] .thread { background-image: repeating-radial-gradient(circle at 50% 40%, rgba(255,255,255,.05) 0 1px, transparent 1px 26px); }
+
+body[data-wall="aurora"] .thread {
+  background: linear-gradient(125deg, #041f1a, #071033, #22093a, #041f1a);
+  background-size: 400% 400%;
+  animation: aurora 22s ease-in-out infinite;
+}
+@keyframes aurora { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+
+body[data-wall="stars"] .thread {
+  background-color: #050a10;
+  background-image:
+    radial-gradient(1.4px 1.4px at 12% 18%, #fff, transparent),
+    radial-gradient(1.2px 1.2px at 68% 42%, #cfe9ff, transparent),
+    radial-gradient(1.6px 1.6px at 38% 78%, #fff, transparent),
+    radial-gradient(1px 1px at 84% 86%, #bcd, transparent),
+    radial-gradient(1.2px 1.2px at 52% 12%, #fff, transparent);
+  background-size: 220px 220px, 260px 260px, 300px 300px, 340px 340px, 400px 400px;
+  animation: stars 90s linear infinite;
+}
+@keyframes stars { from { background-position: 0 0, 0 0, 0 0, 0 0, 0 0; } to { background-position: 220px 440px, -260px 520px, 300px -600px, -340px 680px, 400px 800px; } }
+
+body[data-wall="lava"] .thread {
+  background: radial-gradient(circle at 25% 75%, rgba(255,90,40,.35), transparent 55%),
+              radial-gradient(circle at 75% 25%, rgba(255,190,60,.22), transparent 50%),
+              #140705;
+  background-size: 180% 180%;
+  animation: lava 18s ease-in-out infinite;
+}
+@keyframes lava { 0%,100% { background-position: 0% 0%; } 50% { background-position: 100% 100%; } }
+
+body[data-wall="neon"] .thread {
+  background: linear-gradient(120deg, rgba(0,255,208,.18), rgba(122,43,255,.18), rgba(255,43,214,.18), rgba(0,255,208,.18));
+  background-size: 300% 300%;
+  animation: neon 16s linear infinite;
+}
+@keyframes neon { to { background-position: 300% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-wall] .thread { animation: none !important; }
 }
 
+/* settings actions */
 #settings .btn, #set-save-name {
   background: var(--green); color: #04120d; border: 0; border-radius: 10px;
   padding: 11px 16px; font: inherit; font-weight: 700; width: 100%; cursor: pointer;
 }
 #settings .btn.small, #settings label.btn {
-  width: auto; padding: 8px 14px; font-size: 13px; background: var(--rail-2); color: var(--text);
-  border: 1px solid var(--line); border-radius: 999px; font-weight: 600;
+  width: auto; padding: 8px 14px; font-size: 13px; background: var(--rail-2);
+  color: var(--text); border: 1px solid var(--line); border-radius: 999px; font-weight: 600;
 }
-#settings .set-profile { justify-content: space-between; padding-right: 6px; }

@@ -732,7 +732,7 @@
     const img = prefs.wallImage;
     els.thread.style.backgroundImage = prefs.wall === "custom" && img ? `url("${img}")` : "";
     for (const b of document.querySelectorAll("#themes .chip")) b.classList.toggle("is-on", b.dataset.theme === prefs.theme);
-    for (const b of document.querySelectorAll("#walls .chip[data-wall]")) b.classList.toggle("is-on", b.dataset.wall === prefs.wall);
+    for (const b of document.querySelectorAll("#walls .wall[data-wall]")) b.classList.toggle("on", b.dataset.wall === prefs.wall);
   }
 
   function openSettings() {

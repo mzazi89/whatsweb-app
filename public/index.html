@@ -129,11 +129,19 @@
       </div>
 
       <div class="gp-sec">Wallpaper</div>
-      <div class="chip-row" id="walls">
-        <button class="chip" data-wall="none">Plain</button>
-        <button class="chip" data-wall="doodle">Doodle</button>
-        <button class="chip" data-wall="grid">Grid</button>
-        <label class="chip" for="set-wall">Custom</label>
+      <div class="wall-grid" id="walls">
+        <button class="wall on" data-wall="none"><span class="sw sw-none"></span>Plain</button>
+        <button class="wall" data-wall="doodle"><span class="sw sw-doodle"></span>Doodle</button>
+        <button class="wall" data-wall="grid"><span class="sw sw-grid"></span>Grid</button>
+        <button class="wall" data-wall="waves"><span class="sw sw-waves"></span>Waves</button>
+        <button class="wall" data-wall="carbon"><span class="sw sw-carbon"></span>Carbon</button>
+        <button class="wall" data-wall="bubbles"><span class="sw sw-bubbles"></span>Bubbles</button>
+        <button class="wall" data-wall="topo"><span class="sw sw-topo"></span>Topo</button>
+        <button class="wall" data-wall="aurora"><span class="sw sw-aurora"></span>Aurora <i>live</i></button>
+        <button class="wall" data-wall="stars"><span class="sw sw-stars"></span>Stars <i>live</i></button>
+        <button class="wall" data-wall="lava"><span class="sw sw-lava"></span>Lava <i>live</i></button>
+        <button class="wall" data-wall="neon"><span class="sw sw-neon"></span>Neon <i>live</i></button>
+        <label class="wall" for="set-wall"><span class="sw sw-photo"></span>Your photo</label>
         <input type="file" id="set-wall" accept="image/*" hidden>
       </div>
 
