@@ -3,6 +3,7 @@
 // keep enough to paint the first screen instantly.
 const fs = require("fs");
 const path = require("path");
+const db = require("./db");
 
 const FILE = path.join(__dirname, "..", "data", "store.json");
 const MAX_PER_CHAT = 400;
@@ -69,6 +70,7 @@ class Store {
     const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
     const next = { ...cur, ...clean };
     this.contacts.set(jid, next);
+    if (db.enabled()) db.saveContact(next).catch(() => {});
     return next;
   }
 
@@ -80,6 +82,7 @@ class Store {
     const cur = this.chats.get(jid) || { id: jid, unread: 0, messages: 0 };
     const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
     const next = { ...cur, ...clean, updated: clean.updated || cur.updated || Date.now() };
+    if (db.enabled()) db.saveChat(next).catch(() => {});
     this.chats.set(jid, next);
     this.save();
     return next;
@@ -99,6 +102,7 @@ class Store {
   }
 
   addMessage(jid, msg) {
+    if (db.enabled()) db.saveMessage({ ...msg, jid }).catch(() => {});
     const list = this.messages.get(jid) || [];
     if (msg.id && list.some((m) => m.id === msg.id)) return false;
     list.push(msg);
@@ -126,6 +130,30 @@ class Store {
     Object.assign(m, patch);
     this.save();
     return m;
+  }
+
+  async hydrate() {
+    if (!db.enabled()) return false;
+    try {
+      const [chats, contacts] = await Promise.all([db.loadChats(), db.loadContacts()]);
+      for (const c of contacts) {
+        const cur = this.contacts.get(c.id) || { id: c.id };
+        this.contacts.set(c.id, { ...cur, ...Object.fromEntries(Object.entries(c).filter(([, v]) => v)) });
+      }
+      for (const c of chats) {
+        const cur = this.chats.get(c.id) || { id: c.id, unread: 0, messages: 0 };
+        this.chats.set(c.id, { ...cur, ...c, updated: cur.updated || Date.now() });
+      }
+      const ids = chats.slice(0, 15).map((c) => c.id);
+      await Promise.all(ids.map(async (jid) => {
+        const rows = await db.loadMessages(jid, 120);
+        if (rows.length) this.messages.set(jid, rows);
+      }));
+      return true;
+    } catch (e) {
+      console.error("[store] hydrate failed:", e.message);
+      return false;
+    }
   }
 
   messagesFor(jid) {

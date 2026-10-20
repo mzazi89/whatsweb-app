@@ -38,6 +38,13 @@ Open `http://localhost:3000`.
 
 > **Not for Vercel.** Serverless functions are created per request and have a read-only filesystem, so the WhatsApp socket and the linked-device session cannot survive. Deployed there, the app answers every route with an honest 503 page instead of crashing. Use a host that keeps a process alive.
 
+## Optional: Postgres storage
+
+Set `DATABASE_URL` (Neon works well) and `SESSION_KEY`, and the Baileys
+credentials, chats and messages are kept in Postgres instead of `data/`. The
+credentials are encrypted with AES-256-GCM before they are written, so a
+database dump alone cannot act as your phone. Tables are created on boot.
+
 ## Configuration
 
 | Variable | Default | Meaning |

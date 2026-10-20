@@ -8,6 +8,7 @@ const multer = require("multer");
 const { Server } = require("socket.io");
 
 const store = require("./src/store");
+const db = require("./src/db");
 const wa = require("./src/whatsapp");
 
 const PORT = Number(process.env.PORT || 3000);
@@ -203,11 +204,22 @@ wa.on("log", (line) => {
 });
 
 if (!ON_SERVERLESS) {
-  server.listen(PORT, () => {
+  (async () => {
+    if (db.enabled()) {
+      try {
+        await db.migrate();
+        await store.hydrate();
+        console.log("[db] connected, history restored");
+        db.prune().catch(() => {});
+      } catch (e) {
+        console.error("[db] unavailable:", e.message);
+      }
+    }
+  })().then(() => server.listen(PORT, () => {
     console.log(`WhatsWeb on http://localhost:${PORT}`);
     if (!PASSWORD) console.log("! ACCESS_PASSWORD is empty: anyone who can reach this port can read the chats.");
-    const hasSession = fs.existsSync(path.join(__dirname, "data", "session", "creds.json"));
+    const hasSession = db.enabled() || fs.existsSync(path.join(__dirname, "data", "session", "creds.json"));
     if (hasSession) wa.start().catch(() => {});
-  });
+  }));
 }
 }

@@ -6,6 +6,7 @@ const { EventEmitter } = require("events");
 const QRCode = require("qrcode");
 const pino = require("pino");
 const store = require("./store");
+const db = require("./db");
 
 const DATA = path.join(__dirname, "..", "data");
 const SESSION_DIR = path.join(DATA, "session");
@@ -106,7 +107,9 @@ class WhatsApp extends EventEmitter {
     }
     try {
       const { makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion, Browsers } = this.getBaileys();
-      const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
+      const { state, saveCreds } = db.enabled()
+        ? await require("./authState").usePostgresAuthState(this.getBaileys())
+        : await useMultiFileAuthState(SESSION_DIR);
       let version;
       try {
         ({ version } = await fetchLatestBaileysVersion());
