@@ -179,6 +179,14 @@ class Store {
     }
   }
 
+  findMessage(id) {
+    for (const list of this.messages.values()) {
+      const hit = list.find((m) => m.id === id);
+      if (hit) return hit;
+    }
+    return null;
+  }
+
   messagesFor(jid) {
     return this.messages.get(jid) || [];
   }

@@ -73,6 +73,8 @@ create table if not exists wa_chats (
 alter table wa_chats add column if not exists last_text text;
 alter table wa_chats add column if not exists archived boolean default false;
 alter table wa_messages add column if not exists author_name text;
+alter table wa_messages add column if not exists mimetype text;
+alter table wa_messages add column if not exists file_name text;
 
 create table if not exists wa_contacts (
   account_id text not null,
@@ -94,6 +96,13 @@ create table if not exists wa_messages (
   primary key (account_id, id)
 );
 create index if not exists wa_messages_chat on wa_messages (account_id, jid, ts desc);
+
+create table if not exists wa_message_raw (
+  account_id text not null,
+  id text not null,
+  raw jsonb not null,
+  primary key (account_id, id)
+);
 
 create table if not exists wa_statuses (
   account_id text not null,
@@ -170,11 +179,30 @@ async function saveContact(c) {
 
 async function saveMessage(m) {
   await q(
-    `insert into wa_messages (account_id, jid, id, ts, from_me, kind, body, author, author_name)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-     on conflict (account_id, id) do update set author_name=coalesce(excluded.author_name, wa_messages.author_name)`,
-    [ACCOUNT, m.jid, m.id, m.ts || Date.now(), !!m.fromMe, m.kind || "text", m.text || m.body || null, m.author || null, m.authorName || null]
+    `insert into wa_messages (account_id, jid, id, ts, from_me, kind, body, author, author_name, mimetype, file_name)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+     on conflict (account_id, id) do update set
+       author_name=coalesce(excluded.author_name, wa_messages.author_name),
+       mimetype=coalesce(excluded.mimetype, wa_messages.mimetype),
+       file_name=coalesce(excluded.file_name, wa_messages.file_name)`,
+    [ACCOUNT, m.jid, m.id, m.ts || Date.now(), !!m.fromMe, m.kind || "text", m.text || m.body || null,
+      m.author || null, m.authorName || null, m.mimetype || null, m.fileName || null]
   );
+}
+
+// The media key lives in the message protobuf, so a row is useless for photos
+// after a restart unless the message itself is kept.
+async function saveRawMessage(id, raw) {
+  await q(
+    `insert into wa_message_raw (account_id, id, raw) values ($1,$2,$3)
+     on conflict (account_id, id) do nothing`,
+    [ACCOUNT, id, raw]
+  );
+}
+
+async function loadRawMessage(id) {
+  const { rows } = await q("select raw from wa_message_raw where account_id=$1 and id=$2", [ACCOUNT, id]);
+  return rows[0]?.raw || null;
 }
 
 async function loadChats() {
@@ -197,7 +225,7 @@ const MEDIA_KINDS = new Set(["image", "video", "audio", "document", "sticker", "
 
 async function loadMessages(jid, limit = 200, before = 0) {
   const { rows } = await q(
-    `select id, ts, from_me, kind, body, author, author_name from wa_messages
+    `select id, ts, from_me, kind, body, author, author_name, mimetype, file_name from wa_messages
      where account_id=$1 and jid=$2 and ($4::bigint = 0 or ts < $4)
      order by ts desc limit $3`,
     [ACCOUNT, jid, limit, Number(before) || 0]
@@ -205,6 +233,7 @@ async function loadMessages(jid, limit = 200, before = 0) {
   return rows.reverse().map((r) => ({
     id: r.id, ts: Number(r.ts), fromMe: r.from_me, kind: r.kind, text: r.body || "",
     author: r.author, authorName: r.author_name, hasMedia: MEDIA_KINDS.has(r.kind),
+    mimetype: r.mimetype || "", fileName: r.file_name || "",
   }));
 }
 
@@ -229,7 +258,8 @@ async function prune() {
 module.exports = {
   enabled, db, q, migrate, prune,
   getAuth, setAuth, delAuth, clearAuth,
-  saveChat, saveContact, saveMessage, loadChats, loadContacts, loadMessages,
+  saveChat, saveContact, saveMessage, saveRawMessage, loadRawMessage,
+  loadChats, loadContacts, loadMessages,
   saveStatus, saveCall,
   ACCOUNT,
 };

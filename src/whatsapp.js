@@ -62,6 +62,7 @@ class WhatsApp extends EventEmitter {
     this.qr = null;
     this.pairing = null;
     this.raw = new Map(); // message id -> raw WAMessage (for media download)
+    this.mimes = new Map(); // message id -> mimetype, survives the file cache
     this.statuses = store.getStatuses ? store.getStatuses() : [];
     this.calls = store.getCalls ? store.getCalls() : [];
     this.groupNames = new Map(); // jid -> subject, resolved lazily
@@ -812,7 +813,13 @@ class WhatsApp extends EventEmitter {
     const isNew = store.addMessage(packed.jid, packed);
     if (packed.hasMedia) {
       this.raw.set(packed.id, raw);
+      if (packed.mimetype) this.mimes.set(packed.id, packed.mimetype);
       if (this.raw.size > 300) this.raw.delete(this.raw.keys().next().value);
+      // Keep the protobuf so the photo can still be fetched after a redeploy.
+      try {
+        const B = this.getBaileys();
+        db.saveRawMessage(packed.id, JSON.parse(JSON.stringify(raw, B.BufferJSON.replacer))).catch(() => {});
+      } catch { /* the message still renders, only the file is lost */ }
     }
     if (!isNew) return;
     store.upsertChat(packed.jid, {
@@ -968,12 +975,31 @@ class WhatsApp extends EventEmitter {
   }
 
   async media(id) {
-    const raw = this.raw.get(id);
+    const cached = path.join(MEDIA_DIR, `${String(id).replace(/[^\w-]/g, "")}`);
+    const held = store.findMessage(id);
+    const fallbackMime = { image: "image/jpeg", video: "video/mp4", audio: "audio/ogg", sticker: "image/webp" }[held?.kind] || "";
+    const knownMime = this.mimes.get(id) || held?.mimetype || fallbackMime;
+    if (fs.existsSync(cached) && fs.statSync(cached).size) {
+      return { file: cached, mimetype: knownMime };
+    }
+    let raw = this.raw.get(id);
+    if (!raw) {
+      // After a restart memory is empty; rebuild the message from Postgres.
+      try {
+        const stored = await db.loadRawMessage(id);
+        if (stored) {
+          const B = this.getBaileys();
+          raw = JSON.parse(JSON.stringify(stored), B.BufferJSON.reviver);
+          this.raw.set(id, raw);
+        }
+      } catch { /* fall through to 404 */ }
+    }
     if (!raw) return null;
     try {
       const buf = await this.B.downloadMediaMessage(raw, "buffer", {}, { logger });
       fs.mkdirSync(MEDIA_DIR, { recursive: true });
       const file = path.join(MEDIA_DIR, `${id.replace(/[^\w-]/g, "")}`);
+      this.mimes.set(id, this.pack(raw)?.mimetype || "");
       fs.writeFileSync(file, buf);
       return { file, mimetype: this.pack(raw)?.mimetype || "" };
     } catch (e) {
