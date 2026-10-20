@@ -222,10 +222,17 @@ if (!ON_SERVERLESS) {
         console.error("[db] unavailable:", e.message);
       }
     }
-  })().then(() => server.listen(PORT, () => {
+  })().then(() => server.listen(PORT, async () => {
     console.log(`WhatsWeb on http://localhost:${PORT}`);
     if (!PASSWORD) console.log("! ACCESS_PASSWORD is empty: anyone who can reach this port can read the chats.");
-    const hasSession = db.enabled() || fs.existsSync(path.join(__dirname, "data", "session", "creds.json"));
+    // Only reconnect on boot when a *registered* session exists. Merely having a
+    // database used to start an idle socket that fought with the first link.
+    let hasSession = false;
+    if (db.enabled()) {
+      try { const c = await db.getAuth("creds"); hasSession = !!(c && c.registered === true); } catch (e) {}
+    } else {
+      hasSession = fs.existsSync(path.join(__dirname, "data", "session", "creds.json"));
+    }
     if (hasSession) wa.start().catch(() => {});
   }));
 }

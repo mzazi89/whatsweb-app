@@ -100,6 +100,16 @@ class WhatsApp extends EventEmitter {
       this.sock = null;
     }
     const wanted = String(phone || "").replace(/\D/g, "");
+    if (wanted.length >= 8 && db.enabled()) {
+      try {
+        const existing = await db.getAuth("creds");
+        // Keys from an aborted attempt make WhatsApp refuse the new code (401).
+        if (existing && existing.registered !== true) {
+          await db.clearAuth();
+          this.emit("log", "cleared an unfinished pairing before starting");
+        }
+      } catch (e) {}
+    }
     this.mode = wanted.length >= 8 ? "pairing" : null;
     this.lastPhone = wanted.length >= 8 ? wanted : null;
     if (this.mode !== "pairing") {
@@ -225,7 +235,7 @@ class WhatsApp extends EventEmitter {
               this.pairing = null;
               this.lastPhone = null;
               this.mode = null;
-              this.pairingError = "WhatsApp did not accept that number. Check the country code and that the number has WhatsApp, then try again.";
+              this.pairingError = "WhatsApp closed the pairing (401). That usually means the code expired, the attempt was replaced, or the phone already has four linked devices. Remove an old device on the phone, then press the button again.";
               this.wipeSession();
               this.setState("pairing_error");
             } else {
@@ -322,6 +332,9 @@ class WhatsApp extends EventEmitter {
     try {
       fs.rmSync(SESSION_DIR, { recursive: true, force: true });
     } catch (e) {}
+    // With Postgres auth the folder is empty; the half-finished handshake lives
+    // in wa_auth and would poison the next attempt.
+    if (db.enabled()) db.clearAuth().catch(() => {});
   }
 
   ingestContact(c) {
