@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#111b21">
 <title>WhatsWeb</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0b141a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WhatsWeb">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="icon" href="/icon-192.png">
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -69,6 +76,16 @@
       </button>
     </nav>
   </aside>
+
+  <div class="install" id="install" hidden>
+    <img src="/icon-192.png" alt="" width="38" height="38">
+    <div class="install-text">
+      <b>Install WhatsWeb</b>
+      <span class="muted tiny">Open it from your home screen, full screen.</span>
+    </div>
+    <button class="btn small" id="install-go">Install</button>
+    <button class="icon small" id="install-x" aria-label="Not now">&times;</button>
+  </div>
 
   <main class="pane" id="pane">
     <div class="blank loading-screen" id="loading-screen" hidden>

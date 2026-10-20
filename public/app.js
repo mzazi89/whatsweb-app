@@ -403,6 +403,55 @@
     } catch (e) {}
   }, 15000);
 
+  // ── installable app ───────────────────────────────────────────────────────
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  }
+
+  const installBar = $("install");
+  if (!installBar) return;
+  let installEvent = null;
+  const installGone = () => localStorage.getItem("ww-install-dismissed") === "1";
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    installEvent = e;
+    if (!installGone()) installBar.hidden = false;
+  });
+
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  if (isIOS && !standalone && !installGone()) {
+    installBar.querySelector(".install-text b").textContent = "Add to Home Screen";
+    installBar.querySelector(".install-text span").textContent = "Share → Add to Home Screen to open it full screen.";
+    $("install-go").textContent = "How";
+    installBar.hidden = false;
+  }
+
+  $("install-go").addEventListener("click", async () => {
+    if (installEvent) {
+      installEvent.prompt();
+      try { await installEvent.userChoice; } catch (e) {}
+      installEvent = null;
+      installBar.hidden = true;
+      localStorage.setItem("ww-install-dismissed", "1");
+    } else if (isIOS) {
+      alert("Tap the Share button in Safari, then \"Add to Home Screen\".");
+    } else {
+      installBar.hidden = true;
+    }
+  });
+
+  $("install-x").addEventListener("click", () => {
+    installBar.hidden = true;
+    localStorage.setItem("ww-install-dismissed", "1");
+  });
+
+  window.addEventListener("appinstalled", () => {
+    installBar.hidden = true;
+    localStorage.setItem("ww-install-dismissed", "1");
+  });
+
   // ── events ─────────────────────────────────────────────────────────────────
   socket.on("state", renderState);
   els.tabs.addEventListener("click", (e) => {

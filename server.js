@@ -42,8 +42,11 @@ app.use(express.static(path.join(__dirname, "public"), { index: false }));
 // ── gate ─────────────────────────────────────────────────────────────────────
 // One shared password, stored as an HMAC cookie. No accounts, no database:
 // this app has exactly one WhatsApp session, like WhatsApp Web on one computer.
-const secret = crypto.randomBytes(32);
-const token = () => crypto.createHmac("sha256", secret).update(PASSWORD).digest("hex");
+// Derived, not random: a restart used to invalidate every browser that had
+// already unlocked, which felt like being logged out for no reason.
+const token = () => crypto.createHmac("sha256", PASSWORD || "open").update("ww-session-v1").digest("hex");
+const isHttps = (req) => req.secure || String(req.headers["x-forwarded-proto"] || "").includes("https");
+const cookieFor = (req, maxAge) => `ww=${token()}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}${isHttps(req) ? "; Secure" : ""}`;
 const cookies = (req) => Object.fromEntries(String(req.headers.cookie || "").split(";").filter(Boolean).map((c) => {
   const i = c.indexOf("=");
   return [c.slice(0, i).trim(), decodeURIComponent(c.slice(i + 1))];
@@ -57,8 +60,14 @@ function allowed(req) {
 app.post("/api/unlock", (req, res) => {
   if (!PASSWORD) return res.json({ ok: true });
   if (String(req.body?.password || "") !== PASSWORD) return res.status(401).json({ ok: false, error: "Wrong password" });
-  res.setHeader("Set-Cookie", `ww=${token()}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${60 * 60 * 24 * 30}`);
+  res.setHeader("Set-Cookie", cookieFor(req, 60 * 60 * 24 * 400)); // stays until logout
   res.json({ ok: true });
+});
+
+app.get("/manifest.webmanifest", (req, res) => {
+  res.type("application/manifest+json");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.sendFile(path.join(__dirname, "public", "manifest.webmanifest"));
 });
 
 app.get("/", (req, res) => {
@@ -150,6 +159,9 @@ app.get("/api/media/:id", async (req, res) => {
 });
 
 app.post("/api/logout", async (req, res) => {
+  // Unlinking the phone and forgetting this browser are two different things;
+  // this ends both so "log out" really logs out.
+  res.setHeader("Set-Cookie", "ww=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
   res.json({ ok: true });
   wa.logout().catch(() => {});
 });
