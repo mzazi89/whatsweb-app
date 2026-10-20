@@ -10,6 +10,9 @@
     messages: [],
     filter: "",
     filterKind: "all",
+    selectMode: false,
+    selected: new Set(),
+    showArchived: false,
     tab: "chats",
     calls: [],
     statuses: [],
@@ -25,6 +28,7 @@
     brandDp: $("brand-dp"), menu: $("menu"), filters: $("filters"), older: $("older"), olderWrap: $("older-wrap"), cntUnread: $("cnt-unread"), cntGroups: $("cnt-groups"), loadingScreen: $("loading-screen"), loadingNote: $("loading-note"),
     chats: $("chats"), railEmpty: $("rail-empty"), search: $("search"),
     blank: $("blank"), chat: $("chat"), thread: $("thread"),
+    selbar: $("selbar"), selCount: $("sel-count"),
     tray: $("tray"), trayBody: $("tray-body"), btnEmoji: $("btn-emoji"),
     settings: $("settings"), ginfo: $("ginfo"), ginfoBody: $("ginfo-body"), ginfoName: $("ginfo-name"),
     chatName: $("chat-name"), chatSub: $("chat-sub"), chatAvatar: $("chat-avatar"),
@@ -119,7 +123,9 @@
     let rows = [];
     if (tab === "chats" || tab === "channels") {
       const want = tab === "chats" ? (c) => c.kind === "dm" || c.kind === "group" : (c) => c.kind === "channel" || c.kind === "broadcast";
-      rows = state.chats.filter(want).filter((c) => {
+      const pool = state.chats.filter(want).filter((c) => (state.showArchived ? c.archived : !c.archived));
+      const archivedCount = state.chats.filter(want).filter((c) => c.archived).length;
+      rows = pool.filter((c) => {
         if (tab === "chats" && state.filterKind === "unread" && !(c.unread > 0)) return false;
         if (tab === "chats" && state.filterKind === "groups" && c.kind !== "group") return false;
         const q = state.filter.toLowerCase();
@@ -164,7 +170,11 @@
 
     const waiting = state.snapState === "open" && !state.chats.length && !state.loadingTimedOut && tab === "chats";
     els.railLoading.hidden = !waiting;
-    els.chats.innerHTML = rows.join("");
+    const archRow = (!state.selectMode && (archivedCount || state.showArchived))
+      ? `<div class="arch-row" id="arch-row"><svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 6h18v3H3V6Zm1 5h16v9H4v-9Zm5 2v2h6v-2H9Z"/></svg>
+         <div><div>${state.showArchived ? "Back to chats" : "Archived"}</div><div class="n">${archivedCount} chat${archivedCount === 1 ? "" : "s"}</div></div></div>`
+      : "";
+    els.chats.innerHTML = archRow + rows.join("");
     els.railEmpty.hidden = rows.length > 0 || waiting;
     els.railEmpty.innerHTML =
       tab === "chats" ? "<p>No chats yet.</p><p class=\"muted\">Link your phone to load them.</p>"
@@ -486,6 +496,11 @@
       return (els.link.hidden = false);
     }
     if (act === "settings") return openSettings();
+    if (act === "select") {
+      state.selectMode = true; state.selected.clear();
+      els.selbar.hidden = false; els.selCount.textContent = "0 selected";
+      return renderChats();
+    }
     if (act === "logout") {
       if (!confirm("Log out of MZAZI APP and unlink this device?")) return;
       try { await api("/api/logout", { method: "POST" }); } catch (err) {}
@@ -715,6 +730,25 @@
       } catch (err) { toast(err.message); }
     }
   });
+
+  const endSelect = () => {
+    state.selectMode = false; state.selected.clear();
+    els.selbar.hidden = true;
+    renderChats();
+  };
+  $("sel-done").addEventListener("click", endSelect);
+  const archive = async (archived) => {
+    const jids = [...state.selected];
+    if (!jids.length) return;
+    try {
+      await api("/api/chats/archive", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jids, archived }) });
+      state.chats = state.chats.map((c) => jids.includes(c.id) ? { ...c, archived } : c);
+      toast(archived ? `Archived ${jids.length}` : `Unarchived ${jids.length}`);
+      endSelect();
+    } catch (e) { toast(e.message); }
+  };
+  $("sel-archive").addEventListener("click", () => archive(true));
+  $("sel-unarchive").addEventListener("click", () => archive(false));
 
   // ── screen animation (canvas overlay) ─────────────────────────────────────
   const FX = (() => {
@@ -1147,7 +1181,13 @@
   els.chats.addEventListener("click", async (e) => {
     const row = e.target.closest(".chat-row");
     if (!row) return;
+    if (e.target.closest("#arch-row")) { state.showArchived = !state.showArchived; return renderChats(); }
     const jid = row.getAttribute("data-jid");
+    if (state.selectMode) {
+      if (state.selected.has(jid)) state.selected.delete(jid); else state.selected.add(jid);
+      els.selCount.textContent = `${state.selected.size} selected`;
+      return renderChats();
+    }
     const onAvatar = !!e.target.closest("[data-avatar]");
     await openChat(jid);
     // Tapping the photo in the list goes straight to the group's info page.

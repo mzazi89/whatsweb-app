@@ -440,6 +440,12 @@ class WhatsApp extends EventEmitter {
     return true;
   }
 
+  setArchived(jids, archived) {
+    for (const jid of jids || []) store.upsertChat(jid, { archived: !!archived });
+    this.emit("chats:refresh", this.chats());
+    return true;
+  }
+
   clearChat(jid) {
     store.messages.set(jid, []);
     store.upsertChat(jid, { unread: 0, last: "" });
@@ -677,6 +683,7 @@ class WhatsApp extends EventEmitter {
       name,
       number: group ? "" : contact?.number ? prettyNumber(contact.number) : isLid(jid) ? "" : prettyNumber(jid),
       kind: kindOf(jid),
+      archived: !!chat.archived,
       pn: isLid(jid) ? store.contact(jid)?.number || "" : "",
       group: isGroup(jid),
       unread: chat.unread || 0,

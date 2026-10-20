@@ -172,6 +172,12 @@ app.post("/api/chats/:jid/leave", async (req, res) => {
   catch (e) { res.status(400).json({ error: e.message }); }
 });
 
+app.post("/api/chats/archive", (req, res) => {
+  const jids = Array.isArray(req.body?.jids) ? req.body.jids : [];
+  wa.setArchived(jids, !!req.body?.archived);
+  res.json({ ok: true, count: jids.length });
+});
+
 app.post("/api/chats/:jid/clear", (req, res) => {
   wa.clearChat(decodeURIComponent(req.params.jid));
   res.json({ ok: true });
