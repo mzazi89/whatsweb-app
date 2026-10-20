@@ -533,9 +533,9 @@
         <div class="gp-sec">${g.size} members</div>
         ${mine ? `<div class="gp-row"><div class="avatar">${initial(mine.name, false)}</div><div class="t">You<div class="s">${esc(mine.number || "")}</div></div></div>` : ""}
         ${g.people.map((p) => `
-          <div class="gp-row">
+          <div class="gp-row" data-member="${esc(p.jid)}" data-pn="${esc((p.number || "").replace(/\D/g, ""))}">
             <div class="avatar">${initial(p.name, false)}</div>
-            <div class="t">${esc(p.name)}<div class="s">${esc(p.number || "")}</div></div>
+            <div class="t">${esc(p.name)}<div class="s">${esc(p.number || "Tap to message")}</div></div>
             ${p.admin ? `<span class="tag">${p.admin === "owner" ? "Group owner" : "Group admin"}</span>` : ""}
           </div>`).join("")}`;
     } else if (gtab === "media") {
@@ -660,6 +660,16 @@
     if (b) paintGroup(b.dataset.gtab);
   });
   els.ginfoBody.addEventListener("click", async (e) => {
+    const mem = e.target.closest("[data-member]");
+    if (mem) {
+      const pn = (mem.dataset.pn || "").replace(/\D/g, "");
+      const target = pn.length >= 8 ? `${pn}@s.whatsapp.net` : mem.dataset.member;
+      els.ginfo.hidden = true;
+      document.querySelectorAll("#ginfo-tabs button").forEach((b) => { b.style.display = ""; });
+      await openChat(target);
+      if (!pn) toast("Their number isn't shared; sending may fail.");
+      return;
+    }
     const r = e.target.closest("[data-gact]");
     if (!r) return;
     const act = r.dataset.gact;
