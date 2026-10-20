@@ -385,3 +385,11 @@ button { cursor: pointer; }
 }
 .quote b { display: block; color: var(--green); font-size: 12px; font-weight: 600; }
 .quote span { color: #c9d6dc; }
+
+.brand-dp {
+  width: 34px; height: 34px; border-radius: 50%; flex: 0 0 auto;
+  display: grid; place-items: center; margin-right: 10px;
+  background: linear-gradient(135deg, #1f6f5c, #0b3f34); color: #d8fff2;
+  font-size: 14px; font-weight: 700; background-size: cover; background-position: center;
+  box-shadow: 0 0 0 2px rgba(0,168,132,.35);
+}

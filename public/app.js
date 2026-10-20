@@ -22,7 +22,7 @@
   const els = {
     meName: $("me-name"), meNum: $("me-num"), meAvatar: $("me-avatar"),
     railLoading: $("rail-loading"), searchWrap: $("search-wrap"), tabs: $("tabs"),
-    menu: $("menu"), filters: $("filters"), older: $("older"), olderWrap: $("older-wrap"), cntUnread: $("cnt-unread"), cntGroups: $("cnt-groups"), loadingScreen: $("loading-screen"), loadingNote: $("loading-note"),
+    brandDp: $("brand-dp"), menu: $("menu"), filters: $("filters"), older: $("older"), olderWrap: $("older-wrap"), cntUnread: $("cnt-unread"), cntGroups: $("cnt-groups"), loadingScreen: $("loading-screen"), loadingNote: $("loading-note"),
     chats: $("chats"), railEmpty: $("rail-empty"), search: $("search"),
     blank: $("blank"), chat: $("chat"), thread: $("thread"),
     chatName: $("chat-name"), chatSub: $("chat-sub"), chatAvatar: $("chat-avatar"),
@@ -358,6 +358,23 @@
   // ── link overlay ───────────────────────────────────────────────────────────
   function renderState(snap) {
     state.me = snap.me || null;
+    if (state.me && !state.dpLoaded) {
+      state.dpLoaded = true;
+      api("/api/me/avatar").then((d) => {
+        if (d && d.url) {
+          els.brandDp.style.backgroundImage = `url("${d.url}")`;
+          els.brandDp.textContent = "";
+        }
+      }).catch(() => {});
+    }
+    if (state.me && !els.brandDp.style.backgroundImage) {
+      els.brandDp.textContent = initial(state.me.name || state.me.number || "M");
+    }
+    if (!state.me) {
+      state.dpLoaded = false;
+      els.brandDp.style.backgroundImage = "";
+      els.brandDp.textContent = "M";
+    }
     if (snap.state === "open" && state.snapState !== "open") {
       state.loadingTimedOut = false;
       setTimeout(() => {

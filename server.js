@@ -115,6 +115,13 @@ app.get("/api/chats/:jid/messages", (req, res) => {
   res.json({ chat: wa.chatView(jid), messages: wa.messages(jid) });
 });
 
+app.get("/api/me/avatar", async (req, res) => {
+  const me = store.getMe?.();
+  const jid = me?.id ? (me.id.includes("@") ? me.id : `${me.id}@s.whatsapp.net`) : null;
+  const url = jid ? await wa.avatar(jid) : null;
+  res.json({ url });
+});
+
 app.get("/api/chats/:jid/avatar", async (req, res) => {
   const jid = decodeURIComponent(req.params.jid);
   const url = await wa.avatar(jid);
