@@ -104,7 +104,18 @@ app.post("/api/link", async (req, res) => {
   wa.start({ phone }).catch((e) => console.error("link:", e.message));
 });
 
-app.get("/api/diag", (req, res) => res.json({ ...wa.snapshot(), logs: recent }));
+app.get("/api/diag", async (req, res) => {
+  const out = { ...wa.snapshot(), logs: recent };
+  // Whether the linked-device credentials survived a restart: the difference
+  // between "reconnecting" and "you have to link again".
+  try {
+    const creds = db.enabled() ? await db.getAuth("creds") : null;
+    out.session = { saved: !!(creds && creds.registered), store: !!fs.existsSync(path.join(__dirname, "data", "session", "creds.json")) };
+  } catch (e) {
+    out.session = { saved: false, error: e.message };
+  }
+  res.json(out);
+});
 
 app.get("/api/chats", (req, res) => res.json({ chats: wa.chats() }));
 
