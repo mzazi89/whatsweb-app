@@ -26,6 +26,7 @@
     chats: $("chats"), railEmpty: $("rail-empty"), search: $("search"),
     blank: $("blank"), chat: $("chat"), thread: $("thread"),
     tray: $("tray"), trayBody: $("tray-body"), btnEmoji: $("btn-emoji"),
+    ginfo: $("ginfo"), ginfoBody: $("ginfo-body"), ginfoName: $("ginfo-name"),
     chatName: $("chat-name"), chatSub: $("chat-sub"), chatAvatar: $("chat-avatar"),
     text: $("text"), send: $("btn-send"), attach: $("attach"), file: $("attach"),
     link: $("link"), lead: $("link-lead"), pairForm: $("pair-form"),
@@ -239,7 +240,8 @@
     const showName = !m.fromMe && (state.current || "").endsWith("@g.us");
     const parts = [];
     if (showName) {
-      const who = m.authorName ||
+      const who = (state.people && state.people[m.author]) ||
+        (m.authorName && m.authorName !== "Member" ? m.authorName : "") ||
         (m.author && !m.author.endsWith("@lid") ? pretty(m.author) : "") ||
         (m.from && !m.from.endsWith("@lid") ? pretty(m.from) : "") ||
         "Member";
@@ -500,6 +502,46 @@
       toast("Logged out");
     }
   });
+
+  async function loadGroupInfo(jid) {
+    try {
+      const { group } = await api(`/api/chats/${jidOf(jid)}/info`);
+      if (!group) return;
+      state.people = state.people || {};
+      for (const p of group.people) {
+        if (p.jid && p.name) state.people[p.jid] = p.name;
+      }
+      state.group = group;
+      if (state.current === jid) renderThread(true);
+    } catch (e) {}
+  }
+
+  function openGroupInfo() {
+    const jid = state.current;
+    if (!jid) return;
+    if (!jid.endsWith("@g.us")) return toast("Contact info is not available in the browser build.");
+    els.ginfo.hidden = false;
+    els.ginfoName.textContent = state.group?.subject || "Group";
+    els.ginfoBody.innerHTML = `<div class="sheet-desc">Loading members…</div>`;
+    api(`/api/chats/${jidOf(jid)}/info`).then(({ group }) => {
+      if (!group) { els.ginfoBody.innerHTML = `<div class="sheet-desc">Group details are not available.</div>`; return; }
+      state.group = group;
+      els.ginfoName.textContent = group.subject || "Group";
+      els.ginfoBody.innerHTML = `
+        <div class="sheet-desc">${group.size} members${group.desc ? " · " + esc(group.desc) : ""}</div>
+        ${group.people.map((p) => `
+          <div class="member">
+            <div class="avatar">${initial(p.name, false)}</div>
+            <div class="m-name">${esc(p.name)}<div class="m-sub">${esc(p.number || "")}</div></div>
+            ${p.admin ? `<span class="tag">${p.admin}</span>` : ""}
+          </div>`).join("")}`;
+    }).catch(() => { els.ginfoBody.innerHTML = `<div class="sheet-desc">Could not load members.</div>`; });
+  }
+
+  $("ginfo-x").addEventListener("click", () => { els.ginfo.hidden = true; });
+  els.ginfo.addEventListener("click", (e) => { if (e.target === els.ginfo) els.ginfo.hidden = true; });
+  $("chat-avatar").addEventListener("click", openGroupInfo);
+  $("chat-name").addEventListener("click", openGroupInfo);
 
   // ── emoji / gif / stickers ────────────────────────────────────────────────
   const EMOJI = {

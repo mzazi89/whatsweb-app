@@ -65,6 +65,7 @@ class WhatsApp extends EventEmitter {
     this.statuses = store.getStatuses ? store.getStatuses() : [];
     this.calls = store.getCalls ? store.getCalls() : [];
     this.groupNames = new Map(); // jid -> subject, resolved lazily
+    this.groupMeta = new Map();
     this.lidTried = new Set();
     this.groupLookups = new Set();
     this.starting = false;
@@ -372,7 +373,9 @@ class WhatsApp extends EventEmitter {
     if (name) return name;
     if (String(jid).endsWith("@lid")) {
       this.resolveLid(jid);
-      return "Member";
+      const mapped = store.contact(jid)?.number;
+      const viaPn = mapped ? store.contact(`${mapped}@s.whatsapp.net`)?.name : "";
+      return viaPn || "";
     }
     return prettyNumber(jid);
   }
@@ -398,16 +401,29 @@ class WhatsApp extends EventEmitter {
 
   // Group names only arrive with metadata, not with the chat rows.
   async ensureGroupName(jid) {
-    if (!isGroup(jid) || this.groupNames.has(jid) || this.groupLookups.has(jid)) return;
+    if (!isGroup(jid) || !this.sock || this.groupLookups.has(jid)) return;
+    if (this.groupNames.has(jid) && this.groupMeta.has(jid)) return;
     this.groupLookups.add(jid);
     try {
       const meta = await this.sock.groupMetadata(jid);
+      this.groupMeta.set(jid, meta);
       const subject = meta?.subject;
       if (subject) {
         this.groupNames.set(jid, subject);
         store.upsertChat(jid, { name: subject });
-        this.emit("chats:refresh", this.chats());
       }
+      // Members carry the names history sync leaves out, plus the LID pairing.
+      for (const p of meta?.participants || []) {
+        const jidP = p.id || p.jid;
+        if (!jidP) continue;
+        const name = p.name || p.notify || p.verifiedName;
+        if (name) store.upsertContact(jidP, { name, pushName: p.notify || undefined });
+        if (p.lid && jidP && p.lid !== jidP) {
+          store.upsertContact(p.lid, { name, number: jidToNumber(jidP) });
+          store.upsertContact(jidP, { name });
+        }
+      }
+      this.emit("chats:refresh", this.chats());
     } catch (e) {
       this.emit("log", `group metadata failed ${jid}: ${e.message}`);
     } finally {
@@ -415,12 +431,30 @@ class WhatsApp extends EventEmitter {
     }
   }
 
+  async groupInfo(jid) {
+    await this.ensureGroupName(jid);
+    const meta = this.groupMeta.get(jid);
+    if (!meta) return null;
+    const people = (meta.participants || []).map((p) => {
+      const id = p.id || p.jid || "";
+      const c = store.contact(id) || {};
+      const admin = p.admin === "superadmin" ? "owner" : p.admin === "admin" ? "admin" : "";
+      return {
+        jid: id,
+        name: c.name || p.name || p.notify || (isLid(id) ? "Member" : prettyNumber(id)),
+        number: c.number ? prettyNumber(c.number) : isLid(id) ? "" : prettyNumber(id),
+        admin,
+      };
+    }).sort((a, b) => (b.admin ? 1 : 0) - (a.admin ? 1 : 0) || a.name.localeCompare(b.name));
+    return { subject: meta.subject, desc: meta.desc || "", size: people.length, people };
+  }
+
   ingestChat(c) {
     const jid = c.id;
     if (!jid || jid === "status@broadcast") return;
     if (isGroup(jid)) {
       if (c.name) this.groupNames.set(jid, c.name);
-      else this.ensureGroupName(jid);
+      this.ensureGroupName(jid);
     }
     store.upsertChat(jid, {
       name: c.name || this.groupNames.get(jid) || undefined,

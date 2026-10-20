@@ -145,6 +145,13 @@ app.post("/api/chats/:jid/gif", async (req, res) => {
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
+app.get("/api/chats/:jid/info", async (req, res) => {
+  const jid = decodeURIComponent(req.params.jid);
+  if (!jid.endsWith("@g.us")) return res.json({ group: null });
+  const info = await wa.groupInfo(jid);
+  res.json({ group: info });
+});
+
 app.get("/api/stickers", (req, res) => res.json({ stickers: wa.recentStickers() }));
 
 app.post("/api/chats/:jid/sticker", async (req, res) => {
